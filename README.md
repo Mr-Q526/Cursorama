@@ -9,6 +9,7 @@
     <a href="LICENSE"><img src="https://img.shields.io/badge/许可证-MIT-181818?style=flat-square" alt="MIT 许可证"></a>
   </p>
   <p>
+    <a href="https://github.com/Mr-Q526/Cursorama/releases/latest">下载 Windows 版</a> ·
     <a href="#效果预览">效果预览</a> ·
     <a href="#快速开始">快速开始</a> ·
     <a href="docs/使用指南.md">使用指南</a> ·
@@ -73,7 +74,9 @@ Cursorama 是一个面向产品演示、操作教程和功能讲解的开源录�
 
 ## 快速开始
 
-完整录制与跨应用鼠标追踪请使用 **Windows 桌面版**。源码运行需要 Git、**Node.js 22.12 或更新版本**与 npm。
+从 [GitHub Releases](https://github.com/Mr-Q526/Cursorama/releases/latest) 下载 **Windows x64 压缩包**，完整解压到有写入权限的目录，运行其中的 `Cursorama.exe`。桌面运行环境和视频编码器已包含在压缩包中。
+
+完整录制与跨应用鼠标追踪请使用 **Windows 桌面版**。也可以从源码运行，需要 Git、**Node.js 22.12 或更新版本**与 npm：
 
 ```powershell
 git clone https://github.com/Mr-Q526/Cursorama.git
