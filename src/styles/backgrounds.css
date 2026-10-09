@@ -15,3 +15,49 @@
 .background-selected > span { color: var(--text-tertiary); }
 .background-selected > strong { font-weight: 500; color: var(--text-secondary); }
 .wallpaper-note { margin: 11px 0 0; font-size: 9px; }
+.background-more-button { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 38px; margin-top: 16px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-background); color: var(--text-secondary); font-size: 11px; }
+.background-more-button > span:first-of-type { flex: 1; text-align: left; }
+.background-more-button:hover { background: var(--tone-95); color: var(--text-primary); border-color: var(--tone-75); }
+.background-more-count { min-width: 21px; padding: 2px 5px; border-radius: 4px; background: var(--tone-95); color: var(--text-tertiary); font-size: 10px; font-variant-numeric: tabular-nums; }
+.modal.background-library-dialog { width: 1000px; display: flex; flex-direction: column; padding: 27px; overflow: hidden; }
+.background-library-dialog .modal-heading { margin-bottom: 23px; flex-shrink: 0; }
+.background-library-dialog .modal-heading h2 { font-size: 21px; }
+.background-library-dialog .modal-heading p { margin-top: 6px; }
+.background-library-layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 26px; min-height: 0; }
+.background-library-browser { display: flex; flex-direction: column; min-height: 0; }
+.background-library-categories { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 18px; flex-shrink: 0; }
+.background-library-categories button { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: transparent; color: var(--text-secondary); border-radius: 7px; font-size: 10px; }
+.background-library-categories button > span { color: var(--text-tertiary); font-size: 9px; font-variant-numeric: tabular-nums; }
+.background-library-categories button:hover { background: var(--tone-95); }
+.background-library-categories button.selected { background: var(--primary-button); color: var(--primary-button-text); }
+.background-library-categories button.selected > span { color: inherit; opacity: .7; }
+.background-library-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: max-content; gap: 12px; align-content: start; overflow: auto; min-height: 0; padding: 2px 4px 4px 2px; }
+.background-library-option { padding: 4px 4px 12px; border-radius: 9px; }
+.background-library-option .wallpaper-thumbnail { aspect-ratio: 16 / 10; border-radius: 5px; margin-bottom: 9px; flex-shrink: 0; }
+.background-library-option strong { font-size: 11px; }
+.background-library-option small { font-size: 9px; line-height: 1.5; padding-top: 4px; }
+.background-library-option:focus-visible { outline-offset: 0; }
+.background-library-selection { min-width: 0; padding: 17px; border: 1px solid var(--line); border-radius: 12px; background: var(--tone-95); align-self: start; }
+.background-library-eyebrow { margin: 0 0 13px; color: var(--text-secondary); font-size: 10px; }
+.background-library-preview { aspect-ratio: 16 / 10; overflow: hidden; border-radius: 7px; box-shadow: 0 5px 15px #00000012; }
+.background-library-preview img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.background-library-selection-details { margin-top: 20px; }
+.background-library-collection { color: var(--text-tertiary); font-size: 9px; }
+.background-library-selection h3 { margin: 7px 0 8px; color: var(--text-primary); font-size: 17px; font-weight: 500; }
+.background-library-selection-details p { margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.8; }
+.background-library-artwork { display: flex; align-items: center; gap: 7px; margin: 23px 0 0; padding-top: 15px; border-top: 1px solid var(--line); color: var(--text-tertiary); font-size: 10px; line-height: 1.8; }
+.background-library-applied { display: flex; align-items: center; gap: 7px; margin: 14px 0 0; color: var(--text-secondary); font-size: 10px; }
+.background-library-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--line); flex-shrink: 0; }
+.background-library-footer p { margin: 0; font-size: 10px; color: var(--text-tertiary); line-height: 1.8; }
+.background-library-footer .primary-button { min-width: 84px; min-height: 34px; justify-content: center; }
+@media (max-width: 1000px) {
+  .background-library-layout { grid-template-columns: minmax(0, 1fr) 220px; gap: 18px; }
+  .background-library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .modal.background-library-dialog { padding: 23px; }
+}
+@media (max-height: 760px) {
+  .modal.background-library-dialog { padding: 20px; }
+  .background-library-dialog .modal-heading { margin-bottom: 14px; }
+  .background-library-categories { padding-bottom: 12px; }
+  .background-library-footer { margin-top: 14px; padding-top: 14px; }
+}

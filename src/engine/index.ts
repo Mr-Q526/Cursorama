@@ -8,3 +8,6 @@ export * from './geometry';
 export * from './quality';
 export * from './backgrounds';
 export * from './frame-glass';
+export * from './timeline-media';
+export * from './subtitles';
+export * from './project-media';

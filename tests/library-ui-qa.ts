@@ -1,7 +1,7 @@
 import type { LibraryProject } from '../shared';
 import { t } from '../src/i18n';
 
-export interface LibraryUIReport { projectId: string; name: string; projectPath: string; videoId: string; videoPath: string; automaticSave: boolean; videoWidth: number; videoHeight: number; }
+export interface LibraryUIReport { projectId: string; name: string; projectPath: string; videoId: string; videoPath: string; automaticSave: boolean; videoWidth: number; videoHeight: number; projectCover: boolean; videoCover: boolean; }
 const UI_QA = { pollInterval: 50, timeout: 30_000, projectName: '本地项目库恢复验证', resolution: '720p', glassStrength: 73 } as const;
 
 async function waitUntil<T>(read: () => T | undefined | Promise<T | undefined>): Promise<T> {
@@ -60,6 +60,17 @@ export async function runLibraryUIQA(): Promise<LibraryUIReport> {
   button(t.export.close, dialog).click();
   button(t.navigation.library).click();
   await waitUntil(() => document.querySelector('.library-page') ? true : undefined);
+  await waitUntil(() => {
+    const cover = document.querySelector<HTMLImageElement>(`[data-project-id="${id}"] .library-cover img`);
+    return cover?.complete && cover.naturalWidth > 0 ? true : undefined;
+  });
+  const videoTab = document.querySelectorAll<HTMLButtonElement>('.library-tabs button')[1];
+  if (!videoTab) throw new Error('QA_LIBRARY_VIDEO_FILTER_MISSING');
+  videoTab.click();
+  await waitUntil(() => {
+    const cover = document.querySelector<HTMLImageElement>(`.library-card-open[data-video-id="${video.id}"] .library-cover img`);
+    return cover?.complete && cover.naturalWidth > 0 ? true : undefined;
+  });
   const item = await waitUntil(() => document.querySelector<HTMLButtonElement>(`[data-video-id="${video.id}"]`) ?? undefined);
   item.click();
   const preview = await waitUntil(() => {
@@ -67,7 +78,7 @@ export async function runLibraryUIQA(): Promise<LibraryUIReport> {
     return value && value.readyState >= HTMLMediaElement.HAVE_METADATA ? value : undefined;
   });
   if (!preview.videoWidth || !preview.videoHeight || !Number.isFinite(preview.duration)) throw new Error('QA_LIBRARY_VIDEO_UNPLAYABLE');
-  const report: LibraryUIReport = { projectId: id, name: UI_QA.projectName, projectPath: saved.path, videoId: video.id, videoPath: video.path, automaticSave: true, videoWidth: preview.videoWidth, videoHeight: preview.videoHeight };
+  const report: LibraryUIReport = { projectId: id, name: UI_QA.projectName, projectPath: saved.path, videoId: video.id, videoPath: video.path, automaticSave: true, videoWidth: preview.videoWidth, videoHeight: preview.videoHeight, projectCover: true, videoCover: true };
   button(t.library.closeVideo).click();
   const demo = document.querySelector<HTMLButtonElement>('[data-action="open-demo"]');
   if (!demo || demo.disabled) throw new Error('QA_DEMO_HELP_MISSING');

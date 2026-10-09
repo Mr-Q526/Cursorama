@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#9cbaca"/><stop offset=".62" stop-color="#dce6e8"/><stop offset="1" stop-color="#ede9e1"/></linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#bbcfd4"/><stop offset=".6" stop-color="#82a5b4"/><stop offset="1" stop-color="#678b9d"/></linearGradient>
+    <linearGradient id="sand" x1=".2" y1="0" x2=".8" y2="1"><stop stop-color="#f1e8dc"/><stop offset=".5" stop-color="#dcc9b4"/><stop offset="1" stop-color="#b5977e"/></linearGradient>
+    <linearGradient id="near" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d6c1a9"/><stop offset=".6" stop-color="#f0e2cf"/><stop offset="1" stop-color="#ba9f86"/></linearGradient>
+    <radialGradient id="sun" cx=".68" cy=".26" r=".55"><stop stop-color="#fff9ee" stop-opacity=".72"/><stop offset="1" stop-color="#fff9ee" stop-opacity="0"/></radialGradient>
+    <filter id="haze" x="-.1" y="-.2" width="1.2" height="1.4"><feGaussianBlur stdDeviation="26"/></filter>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h3840v2160H0z"/>
+  <path fill="url(#sun)" d="M0 0h3840v2160H0z"/>
+  <path fill="#96b3be" opacity=".32" filter="url(#haze)" d="M-60 1160c820-50 1150-170 1820-70s1440 140 2150-10v580H-60Z"/>
+  <path fill="url(#sea)" d="M0 1190c920-70 1710-20 2430 20s1130-60 1410-30v980H0Z"/>
+  <path fill="url(#sand)" d="M-80 1560c1070 160 1290 260 2180 140s1360-390 1850-400v970H-80Z"/>
+  <path fill="none" stroke="#fffaf2" stroke-opacity=".6" stroke-width="9" d="M-80 1548c1070 160 1290 260 2180 140s1360-390 1850-400"/>
+  <path fill="url(#near)" d="M-80 2050c720-340 1690-110 2310-210s1230-160 1750 160v330H-80Z"/>
+  <path fill="none" stroke="#f8eee0" stroke-opacity=".4" stroke-width="3" d="M520 1980c730-130 1030 70 1610-20M50 1350c750-20 1080 30 1610 15M2880 1320c450-50 650-80 900-75"/>
+</svg>

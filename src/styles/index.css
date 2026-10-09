@@ -7,6 +7,7 @@
 @import './pages.css';
 @import './playback.css';
 @import './recording-controls.css';
+@import './editing.css';
 
 :root {
   font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
@@ -61,9 +62,6 @@ select { cursor: pointer; }
 .header-project { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: 11px; }
 .header-path-divider { opacity: .65; }
 .header-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
-.header-actions .soft-button, .header-actions .primary-button { min-height: 31px; padding: 0 12px; gap: 7px; border-radius: 6px; font-size: 11px; }
-.header-actions .header-record { background: transparent; color: var(--text-secondary); }
-.header-actions .header-record:hover:not(:disabled) { background: var(--tone-95); color: var(--text-primary); }
 .header-back { margin-right: 2px; }
 .primary-button, .soft-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; padding: 0 17px; border-radius: 8px; font-size: 12px; font-weight: 500; white-space: nowrap; }
 .primary-button { color: var(--tone-100); background: var(--tone-25); border: 1px solid var(--tone-25); box-shadow: 0 2px 4px color-mix(in srgb, var(--tone-20) 7%, transparent); }

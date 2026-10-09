@@ -12,6 +12,8 @@ export interface NavigationUIReport {
   compactDemo: boolean;
   workspaceCreationRemoved: boolean;
   configurableStorage: boolean;
+  headerActionsRemoved: boolean;
+  sidebarToolsAligned: boolean;
 }
 
 const UI_TIMING = { timeout: 10_000, poll: 50 } as const;
@@ -82,6 +84,10 @@ export async function setThemeUI(theme: AppTheme): Promise<void> {
 export async function runNavigationUIQA(): Promise<NavigationUIReport> {
   const sourceName = document.querySelector<HTMLInputElement>('.project-name')?.value;
   if (!sourceName || document.querySelector('.app-footer') || document.querySelector('.app-header [aria-label="浅色主题"]')) throw new Error('QA_WORKSPACE_CHROME_INVALID');
+  if (Array.from(document.querySelectorAll('.app-header button')).some((button) => button.textContent?.includes(t.editor.newRecording) || button.textContent?.includes(t.editor.exportVideo))) throw new Error('QA_HEADER_ACTIONS_REMAIN');
+  const settingsBox = document.querySelector('[data-action="open-settings"]')?.getBoundingClientRect();
+  const helpBox = document.querySelector('[data-action="open-demo"]')?.getBoundingClientRect();
+  if (!settingsBox || !helpBox || settingsBox.right >= helpBox.left || settingsBox.top !== helpBox.top || settingsBox.height !== helpBox.height) throw new Error('QA_SIDEBAR_TOOLS_NOT_ALIGNED');
   navigate('library');
   await waitUntil(() => Boolean(document.querySelector('.library-page')));
   const sidebar = document.querySelector('.library-sidebar');
@@ -107,5 +113,5 @@ export async function runNavigationUIQA(): Promise<NavigationUIReport> {
   if (Array.from(sidebar.querySelectorAll('button')).some((button) => button.textContent?.includes('新建工作区'))) throw new Error('QA_NEW_WORKSPACE_REMAINS');
   navigate('workspace');
   await waitUntil(() => document.querySelector<HTMLInputElement>('.project-name')?.value === sourceName && Boolean(document.querySelector('.preview-stage canvas')));
-  return { independentLibrary: true, centralizedSettings: true, workspacePreserved: true, footerRemoved: true, lightTheme: document.documentElement.dataset.theme === 'light', darkTheme: document.documentElement.dataset.theme === 'dark', modalSettings: true, compactDemo: true, workspaceCreationRemoved: true, configurableStorage: true };
+  return { independentLibrary: true, centralizedSettings: true, workspacePreserved: true, footerRemoved: true, lightTheme: document.documentElement.dataset.theme === 'light', darkTheme: document.documentElement.dataset.theme === 'dark', modalSettings: true, compactDemo: true, workspaceCreationRemoved: true, configurableStorage: true, headerActionsRemoved: true, sidebarToolsAligned: true };
 }

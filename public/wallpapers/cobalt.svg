@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#07142c"/><stop offset=".6" stop-color="#244c87"/><stop offset="1" stop-color="#122653"/></linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2=".85" y2="1"><stop stop-color="#adcff3"/><stop offset=".28" stop-color="#6198d5"/><stop offset=".58" stop-color="#2c5b9c"/><stop offset=".8" stop-color="#122e5f"/><stop offset="1" stop-color="#7faadd"/></linearGradient>
+    <linearGradient id="light" x1=".1" y1="0" x2=".9" y2="1"><stop stop-color="#e5f2ff"/><stop offset=".22" stop-color="#7bb1e5"/><stop offset=".65" stop-color="#3a71b4"/><stop offset="1" stop-color="#163465"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2=".3"><stop stop-color="#203c6f"/><stop offset=".5" stop-color="#9dcaee"/><stop offset="1" stop-color="#365b8c"/></linearGradient>
+    <filter id="shadow" x="-.2" y="-.3" width="1.4" height="1.6"><feDropShadow dx="-22" dy="48" stdDeviation="46" flood-color="#020a1c" flood-opacity=".4"/></filter>
+  </defs>
+  <path fill="url(#base)" d="M0 0h3840v2160H0z"/>
+  <g filter="url(#shadow)">
+    <path fill="url(#fold)" d="M-380 520C700 280 1220-640 2190-280s1440 1330 2150 1470v1240H-380Z"/>
+    <path fill="url(#light)" d="M-330 2320C400 2120 1450 1790 1390 820c-25-400 360-730 860-550-780 25-380 1070 330 1170s960-400 1550-280v1160Z"/>
+    <path fill="url(#edge)" d="M-280 1860C600 1590 650 330 1510 170c-490 260-60 870-230 1290S380 2240-280 2350Z"/>
+    <path fill="url(#fold)" d="M2300-200c330 950 1340 460 1740 1050v1430c-520-540-1560-370-1860-1010s400-590 120-1470Z"/>
+  </g>
+  <path fill="none" stroke="#d0e7ff" stroke-opacity=".46" stroke-width="3" d="M-280 1860C600 1590 650 330 1510 170M2300-200c330 950 1340 460 1740 1050"/>
+</svg>

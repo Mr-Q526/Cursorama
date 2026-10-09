@@ -136,6 +136,11 @@ function registerIPC(): void {
   });
   ipcMain.handle(IPC.libraryProject, (_event, projectId: string) => library.openProject(projectId));
   ipcMain.handle(IPC.libraryVideo, async (_event, projectId: string, videoId: string) => Uint8Array.from(await readFile(await library.videoPath(projectId, videoId))).buffer);
+  ipcMain.handle(IPC.libraryCover, (event, projectId: string, videoId?: string) => {
+    if (event.sender !== mainWindow?.webContents) throw new Error(desktopCatalog.invalidRequest);
+    const binary = app.isPackaged ? path.join(process.resourcesPath, 'ffmpeg.exe') : path.join(ROOT, 'node_modules/ffmpeg-static/ffmpeg.exe');
+    return library.cover(projectId, binary, videoId);
+  });
   ipcMain.handle(IPC.libraryReveal, async (_event, projectId?: string, videoId?: string) => {
     const target = await library.revealPath(projectId, videoId);
     if (projectId) shell.showItemInFolder(target);

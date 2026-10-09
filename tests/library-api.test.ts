@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer } from 'vite';
 import type { ViteDevServer } from 'vite';
-import { DEFAULT_SETTINGS, LIBRARY_API, LIBRARY_MUTATION_HEADER, projectBytes, readProjectBytes } from '../shared';
+import { COVER_DATA_PREFIX, DEFAULT_SETTINGS, LIBRARY_API, LIBRARY_MUTATION_HEADER, projectBytes, readProjectBytes } from '../shared';
 import type { ExportResult, LibrarySnapshot, ProjectData } from '../shared';
 import { localLibraryPlugin } from '../storage/dev-server';
 
@@ -57,6 +57,24 @@ describe('浏览器本地存储接口', () => {
     expect((await fetch(`${base}/video/${project.id}/${id}`, { headers: { Range: 'bytes=9-' } })).status).toBe(416);
     const head = await fetch(`${base}/video/${project.id}/${id}`, { method: 'HEAD' });
     expect(head.headers.get('content-length')).toBe('4');
+  });
+
+  it('封面接口读取本地工程，拒绝跨站访问和非法标识', async () => {
+    const libraryCover = `${COVER_DATA_PREFIX}/9j/2Q==`;
+    const saved = await (await fetch(`${base}/save`, { method: 'POST', headers: { [LIBRARY_MUTATION_HEADER]: '1' }, body: projectBytes({ ...metadata, libraryCover }, media).buffer as ArrayBuffer })).json() as ExportResult;
+    try {
+      const response = await fetch(`${base}/cover?id=${saved.projectId}`);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ cover: libraryCover });
+      expect((await fetch(`${base}/cover?id=${saved.projectId}`, { headers: { Origin: 'https://outside.example' } })).status).toBe(403);
+      expect((await fetch(`${base}/cover?id=../project`)).status).toBe(400);
+      expect((await fetch(`${base}/cover?id=${saved.projectId}&video=../video`)).status).toBe(400);
+    } finally {
+      const snapshot = await (await fetch(`${base}/list`)).json() as LibrarySnapshot;
+      const project = snapshot.projects.find((item) => item.id === saved.projectId);
+      if (!project || !path.dirname(project.path).startsWith(path.resolve(temporary) + path.sep)) throw new Error('INVALID_COVER_API_TEST_DIRECTORY');
+      await rm(path.dirname(project.path), { recursive: true });
+    }
   });
 
   it('拒绝来自其他网页的写入以及缺少本地请求标记的写入', async () => {

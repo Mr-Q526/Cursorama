@@ -57,6 +57,7 @@ export const bridge: DesktopBridge = {
   revealStorageDirectory: (target) => ipcRenderer.invoke(IPC.libraryRevealDirectory, target),
   openLibraryProject: (projectId) => ipcRenderer.invoke(IPC.libraryProject, projectId),
   openLibraryVideo: (projectId, videoId) => ipcRenderer.invoke(IPC.libraryVideo, projectId, videoId),
+  getLibraryCover: (projectId, videoId) => ipcRenderer.invoke(IPC.libraryCover, projectId, videoId),
   revealLibrary: (projectId, videoId) => ipcRenderer.invoke(IPC.libraryReveal, projectId, videoId),
   revealFile: (path: string) => ipcRenderer.invoke(IPC.reveal, path),
   onEncodeProgress: (callback) => {

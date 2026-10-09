@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#b4a8c3"/><stop offset=".36" stop-color="#e4bac6"/><stop offset=".7" stop-color="#f5d1b5"/><stop offset="1" stop-color="#d79278"/></linearGradient>
+    <radialGradient id="glow" cx=".76" cy=".47" r=".43"><stop stop-color="#fff4d7" stop-opacity=".9"/><stop offset=".42" stop-color="#ffe7c1" stop-opacity=".34"/><stop offset="1" stop-color="#ffe7c1" stop-opacity="0"/></radialGradient>
+    <linearGradient id="far" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#c69caa"/><stop offset="1" stop-color="#af7c91"/></linearGradient>
+    <linearGradient id="middle" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d59a8e"/><stop offset=".65" stop-color="#a87289"/><stop offset="1" stop-color="#765b80"/></linearGradient>
+    <linearGradient id="near" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a77383"/><stop offset=".52" stop-color="#80576f"/><stop offset="1" stop-color="#54445f"/></linearGradient>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h3840v2160H0z"/>
+  <path fill="url(#glow)" d="M0 0h3840v2160H0z"/>
+  <circle cx="2870" cy="1030" r="160" fill="#fff3d6" opacity=".45"/>
+  <path fill="url(#far)" d="M-100 1580c710-30 900-430 1420-440s830 480 1320 260 630-230 1340 130v730H-100Z"/>
+  <path fill="url(#middle)" d="M-100 1500c890 70 1140 650 1930 410s1110-550 2120-440v850H-100Z"/>
+  <path fill="url(#near)" d="M-100 2010c790-150 1360-410 2070-170s1330 290 2080 40v480H-100Z"/>
+  <path fill="none" stroke="#f7cbb7" stroke-opacity=".22" stroke-width="3" d="M-100 1500c890 70 1140 650 1930 410s1110-550 2120-440"/>
+</svg>

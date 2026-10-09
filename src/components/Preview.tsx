@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CircleIcon } from '@phosphor-icons/react';
 import type { Project } from '../../shared';
-import { previewDimensions, VideoRenderer, wallpaperRevision } from '../engine';
+import { isProjectFrameReady, previewDimensions, projectPreviewRevision, VideoRenderer, wallpaperRevision } from '../engine';
 import type { PlaybackController } from '../hooks';
 import { t } from '../i18n';
 import { Segmented } from './Controls';
@@ -34,18 +34,27 @@ export function Preview({ project, playback, original, onOriginal }: PreviewProp
     let lastWidth = -1;
     let lastHeight = -1;
     let lastReadyState = -1;
+    let lastVideoTime = -1;
+    let lastSeeking = false;
+    let lastVideo: HTMLVideoElement | null = null;
     let lastTheme: string | undefined;
     let lastBackgroundRevision = -1;
     const render = (): void => {
       const { project: current, original: showOriginal } = latest.current;
       const time = playback.timeRef.current;
       const readyState = playback.videoRef.current?.readyState ?? 0;
+      const videoTime = playback.videoRef.current?.currentTime ?? -1;
+      const seeking = playback.videoRef.current?.seeking ?? false;
       const theme = document.documentElement.dataset.theme;
       const backgroundRevision = wallpaperRevision(current.settings.background);
-      if (current !== lastProject || showOriginal !== lastOriginal || time !== lastTime || canvas.width !== lastWidth || canvas.height !== lastHeight || readyState !== lastReadyState || theme !== lastTheme || backgroundRevision !== lastBackgroundRevision) {
+      if (current !== lastProject || showOriginal !== lastOriginal || time !== lastTime || videoTime !== lastVideoTime || seeking !== lastSeeking || playback.videoRef.current !== lastVideo || canvas.width !== lastWidth || canvas.height !== lastHeight || readyState !== lastReadyState || theme !== lastTheme || backgroundRevision !== lastBackgroundRevision) {
         renderer.render(current, time, playback.videoRef.current, showOriginal);
+        if (isProjectFrameReady(current, time, playback.videoRef.current)) canvas.dataset.projectRevision = projectPreviewRevision(current);
+        else delete canvas.dataset.projectRevision;
         lastProject = current; lastOriginal = showOriginal; lastTime = time; lastWidth = canvas.width; lastHeight = canvas.height; lastReadyState = readyState; lastTheme = theme;
         lastBackgroundRevision = backgroundRevision;
+        lastVideoTime = videoTime;
+        lastSeeking = seeking; lastVideo = playback.videoRef.current;
       }
       frame = requestAnimationFrame(render);
     };

@@ -9,6 +9,7 @@ import type { LibraryUIReport } from '../tests/library-ui-qa';
 import type { NavigationUIReport } from '../tests/navigation-ui-qa';
 import type { PreviewUIReport, RoundedFrameReport } from '../tests/preview-ui-qa';
 import type { GlassFrameReport } from '../tests/frame-glass-qa';
+import type { EditingUIReport } from '../tests/editing-ui-qa';
 
 interface CaptureReport {
   bytes: number[];
@@ -35,6 +36,17 @@ async function captureRestoredPage(window: BrowserWindow): Promise<Buffer> {
   throw new Error('SMOKE_RESTORED_SCREENSHOT_UNAVAILABLE');
 }
 
+async function reloadQA(window: BrowserWindow, output: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const complete = (): void => { clearTimeout(timeout); resolve(); };
+    const timeout = setTimeout(() => { window.webContents.removeListener('did-finish-load', complete); reject(new Error('SMOKE_RELOAD_TIMEOUT')); }, 30_000);
+    window.webContents.once('did-finish-load', complete);
+    window.webContents.reload();
+  });
+  await window.webContents.executeJavaScript(`new Promise(resolve => setTimeout(resolve, 200))`);
+  await window.webContents.executeJavaScript(await readFile(path.join(output, 'renderer-test.js'), 'utf8'));
+}
+
 async function verifyFourK(root: string): Promise<typeof DECODE> {
   const { stderr } = await decodeFile(path.join(root, 'node_modules/ffmpeg-static/ffmpeg.exe'), ['-hide_banner', '-i', path.join(root, '.qa/4K清晰度验证.mp4'), '-f', 'null', 'NUL'], { windowsHide: true });
   const frames = Array.from(stderr.matchAll(/frame=\s*(\d+)/g)).at(-1)?.[1];
@@ -57,6 +69,18 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
   window.webContents.on('console-message', (event) => { if (event.level === 'error') errors.push(event.message); });
   try {
     window.showInactive();
+    if (process.argv.includes('--editing-only')) {
+      await window.webContents.executeJavaScript(await readFile(path.join(output, 'renderer-test.js'), 'utf8'));
+      const editing = await window.webContents.executeJavaScript(`cursoramaQA.runEditingUIQA()`, true) as EditingUIReport;
+      await writeFile(path.join(output, 'editing-timeline.png'), await captureRestoredPage(window));
+      await reloadQA(window, output);
+      await window.webContents.executeJavaScript(`cursoramaQA.restoreEditingUIQA(${JSON.stringify(editing.projectId)})`, true);
+      await writeFile(path.join(output, 'editing-restored.png'), await captureRestoredPage(window));
+      if (errors.length) throw new Error(errors.join('\n'));
+      await writeFile(path.join(output, 'editing-report.json'), JSON.stringify({ passed: true, ...editing, restoredAfterReload: true, errors }, null, 2));
+      console.info('视频剪辑验证通过：分割、删除、倍速、多素材、音乐、字幕、导出与重启恢复。');
+      app.exit(0); return;
+    }
     if (process.argv.includes('--quality-only')) {
       await window.webContents.executeJavaScript(await readFile(path.join(output, 'renderer-test.js'), 'utf8'));
       const quality = await window.webContents.executeJavaScript(`cursoramaQA.runExportQualityQA()`, true) as Record<string, unknown>;
@@ -155,14 +179,16 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     await writeFile(path.join(output, 'overview.png'), Buffer.from(overview.split(',')[1], 'base64'));
     await writeFile(path.join(output, 'cinematic.png'), Buffer.from(zoomed.split(',')[1], 'base64'));
     await writeFile(path.join(output, 'desktop.png'), (await window.webContents.capturePage()).toPNG());
-    window.webContents.reload();
-    await new Promise<void>((resolve) => window.webContents.once('did-finish-load', () => resolve()));
-    await window.webContents.executeJavaScript(`new Promise(resolve => setTimeout(resolve, 200))`);
-    await window.webContents.executeJavaScript(await readFile(path.join(output, 'renderer-test.js'), 'utf8'));
+    const editing = await window.webContents.executeJavaScript(`cursoramaQA.runEditingUIQA()`, true) as EditingUIReport;
+    await writeFile(path.join(output, 'editing-timeline.png'), await captureRestoredPage(window));
+    await reloadQA(window, output);
+    await window.webContents.executeJavaScript(`cursoramaQA.restoreEditingUIQA(${JSON.stringify(editing.projectId)})`, true);
+    await writeFile(path.join(output, 'editing-restored.png'), await captureRestoredPage(window));
+    await reloadQA(window, output);
     await window.webContents.executeJavaScript(`cursoramaQA.restoreLibraryUIQA(${JSON.stringify(libraryReport.projectId)})`, true);
     await writeFile(path.join(output, 'library-restored.png'), await captureRestoredPage(window));
     const { bytes: _bytes, ...report } = result;
-    await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: true, ...report, bytes: raw.length, emptyWorkspace, navigation: { ...navigation, lightTheme: true, darkTheme: true }, library: { ...libraryReport, restoredAfterReload: true }, wallpapers: { count: wallpaperReport.count, coverAndFilters: wallpaperReport.coverAndFilters }, fullscreen, fullscreenControls, roundedFrame, glassFrame, recordingFlow: { ...ready, ...cancelledCountdown, ...startedCountdown }, renderer: rendererDetails, decodedFourK, decodedPausedRecording, errors }, null, 2));
+    await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: true, ...report, bytes: raw.length, emptyWorkspace, navigation: { ...navigation, lightTheme: true, darkTheme: true }, library: { ...libraryReport, restoredAfterReload: true }, editing: { ...editing, restoredAfterReload: true }, wallpapers: { count: wallpaperReport.count, coverAndFilters: wallpaperReport.coverAndFilters }, fullscreen, fullscreenControls, roundedFrame, glassFrame, recordingFlow: { ...ready, ...cancelledCountdown, ...startedCountdown }, renderer: rendererDetails, decodedFourK, decodedPausedRecording, errors }, null, 2));
     if (errors.length) throw new Error(errors.join('\n'));
     console.info('桌面端验证通过：界面、原生鼠标追踪、应用窗口录制、3D 自动运镜、带效果 MP4 导出、项目恢复。');
     app.exit(0);
@@ -170,6 +196,7 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     console.error('SMOKE_TEST_FAILED', error);
     await writeFile(path.join(output, 'smoke-failure.png'), (await window.webContents.capturePage()).toPNG());
     await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: false, error: String(error), errors }, null, 2));
+    if (process.argv.includes('--editing-only')) await writeFile(path.join(output, 'editing-report.json'), JSON.stringify({ passed: false, error: String(error), errors }, null, 2));
     app.exit(1);
   }
 }

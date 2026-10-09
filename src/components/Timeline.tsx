@@ -1,58 +1,85 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowClockwiseIcon, CursorClickIcon, FilmStripIcon, PlusIcon, SparkleIcon } from '@phosphor-icons/react';
+import { ArrowClockwiseIcon, CursorClickIcon, FilmStripIcon, MusicNotesIcon, PlusIcon, ScissorsIcon, SparkleIcon, SubtitlesIcon, TrashIcon } from '@phosphor-icons/react';
 import type { Project } from '../../shared';
-import { clamp, DEMO, drawDemo, loadVideo, seekVideo } from '../engine';
-import { formatMultiplier, formatTime, t } from '../i18n';
+import { segmentRanges, SOURCE_MEDIA_ID, timelineDuration } from '../../shared';
+import { clamp, DEMO, drawDemo, loadTimelineMedia, releaseMedia, seekVideo } from '../engine';
+import { formatMultiplier, formatPreciseTime, formatTime, t } from '../i18n';
 import { IconButton } from './Controls';
+import type { EditSelection } from './EditPanel';
 
-export interface TimelineProps { project: Project; time: number; selectedId?: string; onSeek: (time: number) => void; onSelect: (id: string) => void; onRegenerate: () => void; onAdd: () => void; }
+export interface TimelineProps {
+  project: Project; time: number; selectedId?: string; editSelection?: EditSelection; canDelete: boolean;
+  onSeek: (time: number) => void; onSelect: (id: string) => void; onRegenerate: () => void; onAdd: () => void;
+  onEditSelect: (selection: EditSelection) => void; onSplit: () => void; onDelete: () => void;
+  onImportMusic: () => void; onAddSubtitle: () => void;
+}
 const THUMBNAILS = { count: 10, width: 160, height: 100 } as const;
 
-function useThumbnails(project: Project): string[] {
-  const [thumbnails, setThumbnails] = useState<string[]>([]);
+function useThumbnails(project: Project): Record<string, string[]> {
+  const [thumbnails, setThumbnails] = useState<Record<string, string[]>>({});
+  const segmentSignature = segmentRanges(project).map(({ segment }) => `${segment.id}:${segment.sourceIn}:${segment.sourceOut}:${segment.mediaId}`).join('|');
   useEffect(() => {
     let cancelled = false;
-    let video: HTMLVideoElement | undefined;
+    const abort = new AbortController();
+    const videos = new Map<string, HTMLVideoElement>();
     const canvas = document.createElement('canvas'); canvas.width = THUMBNAILS.width; canvas.height = THUMBNAILS.height;
     const context = canvas.getContext('2d');
     const generate = async (): Promise<void> => {
       if (!context) return;
-      if (project.sourceType === 'demo') {
-        const source = document.createElement('canvas'); source.width = DEMO.width; source.height = DEMO.height;
-        const sourceContext = source.getContext('2d'); if (!sourceContext) return;
-        drawDemo(sourceContext, 0); context.drawImage(source, 0, 0, canvas.width, canvas.height);
-        setThumbnails(Array.from({ length: THUMBNAILS.count }, () => canvas.toDataURL('image/jpeg', 0.65)));
-      } else if (project.videoUrl) {
-        video = await loadVideo(project.videoUrl);
-        const result: string[] = [];
-        for (let index = 0; index < THUMBNAILS.count && !cancelled; index++) {
-          await seekVideo(video, Math.min(project.duration - 0.1, project.duration * index / THUMBNAILS.count));
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          result.push(canvas.toDataURL('image/jpeg', 0.65));
+      const result: Record<string, string[]> = {};
+      for (const { segment } of segmentRanges(project)) {
+        if (cancelled) return;
+        const images: string[] = [];
+        const url = segment.mediaId === SOURCE_MEDIA_ID ? project.videoUrl : project.media?.[segment.mediaId]?.url;
+        if (segment.mediaId === SOURCE_MEDIA_ID && project.sourceType === 'demo') {
+          const source = document.createElement('canvas'); source.width = DEMO.width; source.height = DEMO.height;
+          const sourceContext = source.getContext('2d'); if (!sourceContext) return;
+          drawDemo(sourceContext, segment.sourceIn); context.drawImage(source, 0, 0, canvas.width, canvas.height);
+          images.push(canvas.toDataURL('image/jpeg', 0.65));
+        } else if (url) {
+          let video = videos.get(segment.mediaId);
+          if (!video) {
+            const loaded = await loadTimelineMedia(url, 'video', abort.signal);
+            if (!(loaded instanceof HTMLVideoElement)) throw new Error('INVALID_VIDEO_THUMBNAIL_SOURCE');
+            if (cancelled) { releaseMedia(loaded); return; }
+            video = loaded; videos.set(segment.mediaId, video);
+          }
+          for (let index = 0; index < THUMBNAILS.count && !cancelled; index++) {
+            await seekVideo(video, Math.max(segment.sourceIn, segment.sourceIn + (segment.sourceOut - segment.sourceIn) * index / THUMBNAILS.count));
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            images.push(canvas.toDataURL('image/jpeg', 0.65));
+          }
         }
-        if (!cancelled) setThumbnails(result);
+        result[segment.id] = images;
       }
+      if (!cancelled) setThumbnails(result);
     };
     void generate().catch((error: unknown) => { if (!cancelled) console.warn('THUMBNAILS_FAILED', error); });
-    return () => { cancelled = true; if (video) { video.pause(); video.removeAttribute('src'); video.load(); } };
-  }, [project.sourceType, project.videoUrl, project.duration]);
+    return () => { cancelled = true; abort.abort(); for (const video of videos.values()) releaseMedia(video); };
+  }, [project.sourceType, project.videoUrl, project.media, segmentSignature]);
   return thumbnails;
 }
 
-export function Timeline({ project, time, selectedId, onSeek, onSelect, onRegenerate, onAdd }: TimelineProps) {
+export function Timeline({ project, time, selectedId, editSelection, canDelete, onSeek, onSelect, onRegenerate, onAdd, onEditSelect, onSplit, onDelete, onImportMusic, onAddSubtitle }: TimelineProps) {
   const railRef = useRef<HTMLDivElement>(null);
   const thumbnails = useThumbnails(project);
-  const ticks = Array.from({ length: 9 }, (_, index) => project.duration * index / 8);
-  const clicks = project.samples.filter((sample) => sample.kind === 'click');
+  const duration = timelineDuration(project);
+  const ranges = segmentRanges(project);
+  const ticks = Array.from({ length: 9 }, (_, index) => duration * index / 8);
+  const effects = ranges.flatMap(({ segment, outputStart }) => segment.mediaId !== SOURCE_MEDIA_ID ? [] : project.clips.filter((clip) => clip.end > segment.sourceIn && clip.start < segment.sourceOut).map((clip) => ({ clip, segmentId: segment.id, start: outputStart + (Math.max(clip.start, segment.sourceIn) - segment.sourceIn) / segment.speed, end: outputStart + (Math.min(clip.end, segment.sourceOut) - segment.sourceIn) / segment.speed })));
+  const clicks = ranges.flatMap(({ segment, outputStart }) => segment.mediaId !== SOURCE_MEDIA_ID ? [] : project.samples.filter((sample) => sample.kind === 'click' && sample.time >= segment.sourceIn && sample.time < segment.sourceOut).map((sample) => ({ ...sample, time: outputStart + (sample.time - segment.sourceIn) / segment.speed })));
   const seekPointer = (event: ReactPointerEvent<HTMLDivElement>): void => {
     const bounds = railRef.current?.getBoundingClientRect();
-    if (bounds) onSeek(clamp((event.clientX - bounds.left) / bounds.width, 0, 1) * project.duration);
+    if (bounds) onSeek(clamp((event.clientX - bounds.left) / bounds.width, 0, 1) * duration);
   };
-  return <section className="timeline-panel" aria-label={t.editor.timeline}><div className="timeline-heading"><div className="timeline-title"><FilmStripIcon size={17} /><h2>{t.editor.timeline}</h2><span className="small-tag">{project.clips.filter((clip) => clip.enabled).length} {t.editor.autoShots}</span></div><div className="timeline-actions"><button className="text-button" type="button" onClick={onRegenerate}><ArrowClockwiseIcon size={15} />{t.editor.regenerate}</button><button className="soft-button small" type="button" onClick={onAdd}><PlusIcon size={14} />{t.editor.addShot}</button></div></div><div className="timeline-body"><div className="track-labels"><div className="ruler-spacer" /><div><FilmStripIcon size={15} />{t.editor.videoTrack}</div><div><SparkleIcon size={15} />{t.editor.motionTrack}</div><div><CursorClickIcon size={15} />{t.editor.cursorTrack}</div></div><div className="timeline-rails" ref={railRef}>
-    <div className="ruler" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); seekPointer(event); }} onPointerMove={(event) => { if (event.buttons === 1) seekPointer(event); }}><div className="ruler-ticks">{ticks.map((tick) => <span key={tick} style={{ left: `${tick / project.duration * 100}%` }}>{formatTime(tick)}</span>)}</div></div>
-    <div className="video-track" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); seekPointer(event); }} onPointerMove={(event) => { if (event.buttons === 1) seekPointer(event); }}><div className="thumbnail-strip">{thumbnails.map((thumbnail, index) => <img src={thumbnail} alt="" draggable={false} key={index} />)}</div><div className="track-overlay"><FilmStripIcon size={13} />{project.name}</div>{project.trimStart > 0 && <div className="trim-shade" style={{ left: 0, width: `${project.trimStart / project.duration * 100}%` }} />}{project.trimEnd < project.duration && <div className="trim-shade" style={{ right: 0, width: `${(1 - project.trimEnd / project.duration) * 100}%` }} />}</div>
-    <div className="motion-track">{project.clips.map((clip, index) => <button type="button" title={`${t.editor.shot} ${index + 1} · ${formatMultiplier(clip.zoom)}`} aria-label={`${t.editor.shot} ${index + 1}`} key={clip.id} className={`motion-clip ${selectedId === clip.id ? 'selected' : ''} ${!clip.enabled ? 'disabled' : ''}`} style={{ left: `${clip.start / project.duration * 100}%`, width: `${(clip.end - clip.start) / project.duration * 100}%` }} onClick={() => { onSelect(clip.id); onSeek(clip.start + Math.min((clip.end - clip.start) / 2, 0.8)); }}><SparkleIcon size={12} /><span>{formatMultiplier(clip.zoom)}</span></button>)}</div>
-    <div className="cursor-track" onPointerDown={seekPointer}><div className="cursor-baseline" />{clicks.map((sample, index) => <span className="click-mark" key={index} style={{ left: `${sample.time / project.duration * 100}%` }} />)}</div><div className="playhead" style={{ left: `${time / project.duration * 100}%` }}><span /></div>
-  </div></div><div className="timeline-footer"><span>{t.editor.quickHint}</span><span>{formatTime(project.trimEnd - project.trimStart)}<span className="footer-divider">·</span>{project.clips.length} {t.editor.shot}</span><IconButton icon={PlusIcon} label={t.editor.addShot} onClick={onAdd} size={14} /></div></section>;
+  return <section className="timeline-panel editing-timeline" aria-label={t.editor.timeline}><div className="timeline-heading"><div className="timeline-title"><FilmStripIcon size={17} /><h2>{t.editor.timeline}</h2></div><div className="timeline-actions"><IconButton icon={ScissorsIcon} label={t.editing.split} onClick={onSplit} size={16} /><IconButton icon={TrashIcon} label={t.editing.delete} onClick={onDelete} disabled={!canDelete} size={16} /><IconButton icon={MusicNotesIcon} label={t.editing.insertMusic} onClick={onImportMusic} size={16} /><IconButton icon={SubtitlesIcon} label={t.editing.addSubtitle} onClick={onAddSubtitle} size={16} /><IconButton icon={ArrowClockwiseIcon} label={t.editor.regenerate} onClick={onRegenerate} size={16} /><IconButton icon={PlusIcon} label={t.editor.addShot} onClick={onAdd} size={16} /></div></div><div className="timeline-body"><div className="track-labels"><div className="ruler-spacer" /><div><FilmStripIcon size={14} />{t.editing.videoTrack}</div><div><SparkleIcon size={14} />{t.editor.motionTrack}</div><div><CursorClickIcon size={14} />{t.editor.cursorTrack}</div><div><MusicNotesIcon size={14} />{t.editing.musicTrack}</div><div><SubtitlesIcon size={14} />{t.editing.subtitleTrack}</div></div><div className="timeline-rails" ref={railRef}>
+    <div className="ruler" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); seekPointer(event); }} onPointerMove={(event) => { if (event.buttons === 1) seekPointer(event); }}><div className="ruler-ticks">{ticks.map((tick) => <span key={tick} style={{ left: `${tick / duration * 100}%` }}>{formatPreciseTime(tick)}</span>)}</div></div>
+    <div className="editing-video-track">{ranges.map(({ segment, outputStart, outputEnd }, index) => <button type="button" key={segment.id} data-segment-id={segment.id} aria-label={`${t.editing.segment} ${index + 1}`} className={`timeline-segment ${editSelection?.kind === 'segment' && editSelection.id === segment.id ? 'selected' : ''}`} style={{ left: `${outputStart / duration * 100}%`, width: `${(outputEnd - outputStart) / duration * 100}%` }} onPointerDown={(event) => { onEditSelect({ kind: 'segment', id: segment.id }); const bounds = railRef.current?.getBoundingClientRect(); if (bounds) onSeek(clamp((event.clientX - bounds.left) / bounds.width, 0, 1) * duration); }}><div className="thumbnail-strip">{(thumbnails[segment.id] ?? []).map((thumbnail, thumbnailIndex) => <img src={thumbnail} alt="" draggable={false} key={thumbnailIndex} />)}</div><span className="track-overlay"><FilmStripIcon size={12} />{segment.mediaId === SOURCE_MEDIA_ID ? project.name : project.mediaAssets?.find(({ id }) => id === segment.mediaId)?.name}</span>{segment.speed !== 1 && <span className="segment-speed">{formatMultiplier(segment.speed)}</span>}</button>)}</div>
+    <div className="motion-track">{effects.map(({ clip, segmentId, start, end }, index) => <button type="button" title={`${t.editor.shot} ${index + 1} · ${formatMultiplier(clip.zoom)}`} aria-label={`${t.editor.shot} ${index + 1}`} key={`${clip.id}:${segmentId}`} className={`motion-clip ${selectedId === clip.id ? 'selected' : ''} ${!clip.enabled ? 'disabled' : ''}`} style={{ left: `${start / duration * 100}%`, width: `${(end - start) / duration * 100}%` }} onClick={() => { onSelect(clip.id); onSeek(start + Math.min((end - start) / 2, 0.8)); }}><SparkleIcon size={12} /><span>{formatMultiplier(clip.zoom)}</span></button>)}</div>
+    <div className="cursor-track" onPointerDown={seekPointer}><div className="cursor-baseline" />{clicks.map((sample, index) => <span className="click-mark" key={index} style={{ left: `${sample.time / duration * 100}%` }} />)}</div>
+    <div className="music-track">{project.editing?.music.map((music) => <button type="button" key={music.id} className={`media-clip ${editSelection?.kind === 'music' && editSelection.id === music.id ? 'selected' : ''}`} style={{ left: `${music.start / duration * 100}%`, width: `${(music.sourceOut - music.sourceIn) / duration * 100}%` }} onClick={() => { onEditSelect({ kind: 'music', id: music.id }); onSeek(music.start); }}><MusicNotesIcon size={12} /><span>{project.mediaAssets?.find(({ id }) => id === music.mediaId)?.name}</span></button>)}{!project.editing?.music.length && <button type="button" className="track-empty" onClick={onImportMusic}>{t.editing.noMusic}</button>}</div>
+    <div className="subtitle-track">{project.editing?.subtitles.map((subtitle) => <button type="button" key={subtitle.id} className={`media-clip ${editSelection?.kind === 'subtitle' && editSelection.id === subtitle.id ? 'selected' : ''}`} style={{ left: `${subtitle.start / duration * 100}%`, width: `${(subtitle.end - subtitle.start) / duration * 100}%` }} onClick={() => { onEditSelect({ kind: 'subtitle', id: subtitle.id }); onSeek(subtitle.start); }}><SubtitlesIcon size={12} /><span>{subtitle.text || t.editing.subtitlePlaceholder}</span></button>)}{!project.editing?.subtitles.length && <button type="button" className="track-empty" onClick={onAddSubtitle}>{t.editing.noSubtitle}</button>}</div>
+    {project.trimStart > 0 && <div className="trim-shade" style={{ left: 0, width: `${project.trimStart / duration * 100}%` }} />}{project.trimEnd < duration && <div className="trim-shade" style={{ right: 0, width: `${(1 - project.trimEnd / duration) * 100}%` }} />}<div className="playhead" style={{ left: `${time / duration * 100}%` }}><span /></div>
+  </div></div><div className="timeline-footer"><span>{t.editing.tracksHint}</span><span>{formatTime(project.trimEnd - project.trimStart)}</span></div></section>;
 }

@@ -2,6 +2,8 @@ import { BACKGROUNDS, BACKGROUND_LIMITS, WALLPAPER_IDS } from '../../shared';
 import type { BackgroundId, VisualSettings, WallpaperId } from '../../shared';
 
 export interface WallpaperAsset { image: string; }
+export type WallpaperCollectionId = 'windows' | 'mac' | 'minimal';
+export interface WallpaperCollection { id: WallpaperCollectionId; wallpapers: readonly WallpaperId[]; }
 export interface BackgroundCover { x: number; y: number; width: number; height: number; }
 interface WallpaperEntry { image: HTMLImageElement; ready: boolean; revision: number; promise: Promise<void>; }
 type BackgroundAppearance = Pick<VisualSettings, 'background' | 'backgroundBlur' | 'backgroundDim'>;
@@ -14,7 +16,21 @@ export const WALLPAPER_ASSETS: Record<WallpaperId, WallpaperAsset> = {
   silk: { image: `${WALLPAPER_BASE}silk.svg` },
   aurora: { image: `${WALLPAPER_BASE}aurora.svg` },
   dunes: { image: `${WALLPAPER_BASE}dunes.svg` },
+  cobalt: { image: `${WALLPAPER_BASE}cobalt.svg` },
+  prism: { image: `${WALLPAPER_BASE}prism.svg` },
+  coast: { image: `${WALLPAPER_BASE}coast.svg` },
+  sunrise: { image: `${WALLPAPER_BASE}sunrise.svg` },
+  pearl: { image: `${WALLPAPER_BASE}pearl.svg` },
+  slate: { image: `${WALLPAPER_BASE}slate.svg` },
+  mist: { image: `${WALLPAPER_BASE}mist.svg` },
+  midnight: { image: `${WALLPAPER_BASE}midnight.svg` },
 };
+
+export const WALLPAPER_COLLECTIONS: readonly WallpaperCollection[] = [
+  { id: 'windows', wallpapers: ['bloom', 'silk', 'cobalt', 'prism'] },
+  { id: 'mac', wallpapers: ['aurora', 'dunes', 'coast', 'sunrise'] },
+  { id: 'minimal', wallpapers: ['pearl', 'slate', 'mist', 'midnight'] },
+];
 
 export function isWallpaper(background: BackgroundId): background is WallpaperId {
   return (WALLPAPER_IDS as readonly string[]).includes(background);

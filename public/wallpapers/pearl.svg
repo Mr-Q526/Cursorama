@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f6f6f4"/><stop offset=".5" stop-color="#e8e8e5"/><stop offset="1" stop-color="#c4c7c7"/></linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".37" stop-color="#f3f3f0"/><stop offset=".68" stop-color="#b7bdbe"/><stop offset="1" stop-color="#e9ecea"/></linearGradient>
+    <linearGradient id="inside" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#eff0ec"/><stop offset=".6" stop-color="#c5c9c9"/><stop offset="1" stop-color="#fefefb"/></linearGradient>
+    <filter id="shadow" x="-.3" y="-.3" width="1.6" height="1.6"><feDropShadow dx="-18" dy="55" stdDeviation="55" flood-color="#585f62" flood-opacity=".22"/></filter>
+    <radialGradient id="light" cx=".15" cy=".15" r=".8"><stop stop-color="#fff" stop-opacity=".7"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <path fill="url(#base)" d="M0 0h3840v2160H0z"/>
+  <g transform="translate(2840 730) rotate(-26)" filter="url(#shadow)">
+    <ellipse rx="1730" ry="1410" fill="url(#ring)"/>
+    <ellipse rx="1360" ry="1100" fill="url(#inside)"/>
+    <ellipse rx="1040" ry="810" fill="url(#ring)"/>
+    <ellipse rx="755" ry="565" fill="url(#inside)"/>
+    <ellipse rx="480" ry="345" fill="url(#ring)"/>
+    <ellipse rx="250" ry="170" fill="url(#inside)"/>
+  </g>
+  <path fill="url(#light)" d="M0 0h3840v2160H0z"/>
+</svg>

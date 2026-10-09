@@ -53,6 +53,14 @@ export async function openLibraryVideo(projectId: string, videoId: string, forma
   return { url: `${LIBRARY_API}/${route}`, revoke: false };
 }
 
+export async function getLibraryCover(projectId: string, videoId?: string): Promise<string | null> {
+  if (window.desktop) return window.desktop.getLibraryCover(projectId, videoId);
+  const query = new URLSearchParams({ id: projectId });
+  if (videoId) query.set('video', videoId);
+  const value = await (await request(`cover?${query}`)).json() as { cover: string | null };
+  return value.cover;
+}
+
 export async function exportLibraryVideo(value: ExportRequest): Promise<ExportResult> {
   if (window.desktop) return window.desktop.exportVideo(value);
   const query = new URLSearchParams({ id: value.projectId ?? '', name: value.name, format: value.format, quality: value.quality, duration: String(value.duration), fps: String(value.fps) });

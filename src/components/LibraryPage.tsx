@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ArrowClockwiseIcon, ArrowRightIcon, FilmStripIcon, FolderOpenIcon, MagnifyingGlassIcon, MonitorPlayIcon, PlayIcon } from '@phosphor-icons/react';
+import { ArrowClockwiseIcon, ArrowRightIcon, FilmStripIcon, FolderOpenIcon, MagnifyingGlassIcon, PlayIcon } from '@phosphor-icons/react';
 import type { LibraryProject, LibrarySnapshot, LibraryVideo } from '../../shared';
 import { formatFileSize, formatLibraryDate, formatTime, formatVideoCount, t } from '../i18n';
+import { LibraryCover } from './LibraryCover';
 
 export interface LibraryPageProps {
   library: LibrarySnapshot | null;
@@ -39,15 +40,21 @@ export function LibraryPage(props: LibraryPageProps) {
       {props.error ? <div className="library-empty"><FolderOpenIcon size={34} weight="thin" /><p>{copy.loadFailed}</p><button type="button" className="soft-button" onClick={props.onRefresh} disabled={props.loading || props.disabled}>{copy.retry}</button></div>
         : !props.library && props.loading ? <div className="library-empty"><ArrowClockwiseIcon size={28} className="spin" /><p>{copy.loading}</p></div>
         : empty ? <div className="library-empty">{filter === 'projects' ? <FolderOpenIcon size={40} weight="thin" /> : <FilmStripIcon size={40} weight="thin" />}<h2>{search ? copy.searchEmpty : filter === 'projects' ? copy.emptyLibrary : copy.noVideos}</h2>{!search && filter === 'projects' && <><p>{copy.emptyLibraryHint}</p><div className="library-empty-actions"><button type="button" className="primary-button" onClick={props.onRecord} disabled={props.disabled}>{t.editor.newRecording}</button><button type="button" className="soft-button" onClick={props.onImport} disabled={props.disabled}>{copy.import}</button></div></>}</div>
-        : <table className="library-table"><thead><tr><th>{copy.name}</th><th>{filter === 'projects' ? copy.duration : copy.format}</th><th>{filter === 'projects' ? copy.updated : copy.created}</th><th>{filter === 'projects' ? copy.output : copy.fileSize}</th></tr></thead><tbody>
-          {filter === 'projects' ? projects.map((project) => <tr key={project.id}>
-            <td><button type="button" className="library-item" data-project-id={project.id} aria-current={props.projectId === project.id && !props.videoId ? 'true' : undefined} onClick={() => props.onProject(project)} disabled={props.disabled}><span className="library-item-icon"><MonitorPlayIcon size={23} /></span><span><strong>{project.name}</strong><small>{project.width} × {project.height}</small></span><ArrowRightIcon className="library-item-arrow" size={17} /></button></td>
-            <td>{formatTime(project.duration)}</td><td>{formatLibraryDate(project.updatedAt)}</td><td><div className="library-output"><span>{formatVideoCount(project.videos.length)}</span>{project.videos[0] && <button type="button" className="text-button library-latest" data-video-id={project.videos[0].id} onClick={() => props.onVideo(project, project.videos[0])} disabled={props.disabled}><PlayIcon size={13} weight="fill" />{copy.latest}</button>}</div></td>
-          </tr>) : videos.map(({ project, video }) => <tr key={video.id}>
-            <td><button type="button" className="library-item" data-video-id={video.id} aria-current={props.videoId === video.id ? 'true' : undefined} onClick={() => props.onVideo(project, video)} disabled={props.disabled}><span className="library-item-icon"><FilmStripIcon size={23} /></span><span><strong>{video.name}</strong><small>{project.name}</small></span><PlayIcon className="library-item-arrow" size={17} /></button></td>
-            <td><span className="library-format">{video.format.toUpperCase()}</span></td><td>{formatLibraryDate(video.createdAt)}</td><td>{formatFileSize(video.size)}</td>
-          </tr>)}
-        </tbody></table>}
+        : <div className="library-grid">
+          {filter === 'projects' ? projects.map((project) => <article className="library-card" key={project.id}>
+            <button type="button" className="library-card-open" data-project-id={project.id} aria-current={props.projectId === project.id && !props.videoId ? 'true' : undefined} onClick={() => props.onProject(project)} disabled={props.disabled}>
+              <div className="library-card-poster"><LibraryCover projectId={project.id} revision={project.updatedAt} cover={project.cover} /><span className="library-cover-duration">{formatTime(project.duration)}</span><span className="library-cover-open"><ArrowRightIcon size={18} /></span></div>
+              <div className="library-card-details"><strong title={project.name}>{project.name}</strong><span>{project.width} × {project.height}<span className="library-card-separator">·</span>{formatVideoCount(project.videos.length)}</span></div>
+            </button>
+            <div className="library-card-footer"><time dateTime={project.updatedAt}>{formatLibraryDate(project.updatedAt)}</time>{project.videos[0] && <button type="button" className="text-button library-latest" data-video-id={project.videos[0].id} onClick={() => props.onVideo(project, project.videos[0])} disabled={props.disabled}><PlayIcon size={12} weight="fill" />{copy.latest}</button>}</div>
+          </article>) : videos.map(({ project, video }) => <article className="library-card" key={video.id}>
+            <button type="button" className="library-card-open" data-video-id={video.id} aria-current={props.videoId === video.id ? 'true' : undefined} onClick={() => props.onVideo(project, video)} disabled={props.disabled}>
+              <div className="library-card-poster"><LibraryCover projectId={project.id} videoId={video.id} revision={video.createdAt} cover={video.cover} /><span className="library-cover-duration">{video.format.toUpperCase()}</span><span className="library-cover-open"><PlayIcon size={18} weight="fill" /></span></div>
+              <div className="library-card-details"><strong title={video.name}>{video.name}</strong><span>{project.name}<span className="library-card-separator">·</span>{formatFileSize(video.size)}</span></div>
+            </button>
+            <div className="library-card-footer"><time dateTime={video.createdAt}>{formatLibraryDate(video.createdAt)}</time><FilmStripIcon size={15} /></div>
+          </article>)}
+        </div>}
     </div>
     {Boolean(props.library?.unavailable) && <p className="library-warning" role="status">{copy.unavailable}</p>}
   </main>;

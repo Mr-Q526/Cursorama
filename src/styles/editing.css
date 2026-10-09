@@ -1,0 +1,38 @@
+.inspector-tabs { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.editing-panel .control-section { padding-bottom: 17px; margin-bottom: 17px; }
+.edit-add-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.edit-add-grid .soft-button { min-height: 36px; padding: 8px 6px; font-size: 10px; gap: 6px; justify-content: center; }
+.edit-add-grid .soft-button:last-child { grid-column: 1 / -1; }
+.segment-list { display: flex; flex-direction: column; gap: 6px; }
+.segment-list button { display: flex; align-items: center; gap: 7px; border: 1px solid var(--tone-90); border-radius: 6px; min-height: 32px; padding: 7px 8px; background: var(--tone-100); font-size: 10px; text-align: left; color: var(--text-secondary); }
+.segment-list button.selected { border-color: var(--text-secondary); background: var(--tone-95); }
+.segment-list button span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.segment-list button small { flex-shrink: 0; color: var(--text-tertiary); }
+.subtitle-editor { resize: vertical; min-height: 90px; border: 1px solid var(--tone-85); border-radius: 7px; padding: 9px; background: var(--tone-100); color: var(--text-primary); font: inherit; line-height: 1.7; }
+.editing-asset-name { font-size: 11px; color: var(--text-secondary); word-break: break-all; margin-bottom: 16px; }
+.edit-split { width: 100%; justify-content: center; font-size: 11px; }
+.timeline-panel.editing-timeline { height: 292px; }
+.editing-timeline .timeline-heading { flex-shrink: 0; height: 42px; padding: 0 12px; gap: 8px; }
+.editing-timeline .timeline-actions { gap: 5px; }
+.editing-timeline .timeline-actions .icon-button { width: 28px; height: 28px; }
+.editing-timeline .track-labels { width: 78px; padding-left: 12px; }
+.editing-timeline .track-labels > div { height: 36px; }
+.editing-timeline .track-labels .ruler-spacer { height: 28px; }
+.editing-timeline .timeline-body { padding-right: 14px; overflow-y: auto; }
+.editing-video-track { position: relative; height: 36px; touch-action: none; }
+.timeline-segment { position: absolute; top: 3px; height: 31px; padding: 0; overflow: hidden; border: 1px solid var(--tone-75); border-radius: 4px; background: var(--tone-90); color: var(--text-primary); min-width: 3px; }
+.timeline-segment.selected { border-color: var(--text-primary); box-shadow: inset 0 0 0 1px var(--text-primary); z-index: 1; }
+.timeline-segment .thumbnail-strip { opacity: 0.48; }
+.timeline-segment .track-overlay { top: 5px; pointer-events: none; max-width: calc(100% - 10px); }
+.timeline-segment .segment-speed { position: absolute; right: 4px; bottom: 3px; border-radius: 3px; font-size: 8px; background: var(--tone-100); padding: 1px 3px; }
+.editing-timeline .motion-track, .editing-timeline .cursor-track, .music-track, .subtitle-track { position: relative; height: 36px; }
+.editing-timeline .motion-clip { top: 5px; height: 26px; }
+.music-track, .subtitle-track { border-top: 1px solid var(--tone-95); }
+.media-clip { position: absolute; top: 5px; height: 26px; border: 1px solid var(--tone-85); border-radius: 4px; background: var(--tone-95); font-size: 9px; color: var(--text-secondary); padding: 0 7px; display: flex; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; min-width: 4px; }
+.media-clip.selected { background: var(--tone-85); border-color: var(--text-secondary); }
+.media-clip span { overflow: hidden; text-overflow: ellipsis; }
+.track-empty { font-size: 9px; color: var(--text-tertiary); border: 0; background: transparent; padding: 10px 0; }
+.editing-timeline .trim-shade { pointer-events: none; top: 28px; bottom: 0; z-index: 2; }
+.editing-timeline .timeline-footer { flex-shrink: 0; height: 27px; gap: 8px; }
+.editing-timeline .timeline-footer > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-height: 780px) { .timeline-panel.editing-timeline { height: 259px; } .editing-timeline .track-labels > div { height: 31px; } .editing-video-track, .editing-timeline .motion-track, .editing-timeline .cursor-track, .music-track, .subtitle-track { height: 31px; } .timeline-segment { height: 27px; } .media-clip, .editing-timeline .motion-clip { top: 3px; height: 24px; } }

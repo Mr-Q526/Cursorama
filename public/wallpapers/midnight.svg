@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1b1b2a"/><stop offset=".56" stop-color="#10121d"/><stop offset="1" stop-color="#080910"/></linearGradient>
+    <radialGradient id="glow" cx=".24" cy=".14" r=".72"><stop stop-color="#9295bf" stop-opacity=".5"/><stop offset=".4" stop-color="#4c486e" stop-opacity=".32"/><stop offset="1" stop-color="#29243f" stop-opacity="0"/></radialGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7e809f"/><stop offset=".22" stop-color="#3e3e57"/><stop offset=".55" stop-color="#1e2337"/><stop offset="1" stop-color="#101420"/></linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c4c8e1" stop-opacity=".8"/><stop offset=".4" stop-color="#707caa" stop-opacity=".28"/><stop offset="1" stop-color="#707caa" stop-opacity="0"/></linearGradient>
+    <filter id="halo" x="-.3" y="-.3" width="1.6" height="1.6"><feGaussianBlur stdDeviation="35"/></filter>
+  </defs>
+  <path fill="url(#base)" d="M0 0h3840v2160H0z"/>
+  <path fill="url(#glow)" d="M0 0h3840v2160H0z"/>
+  <path fill="none" stroke="#8b8bb5" stroke-opacity=".28" stroke-width="46" filter="url(#halo)" d="M-400 1750C820 1270 760-140 2130-20s1200 1370 2280 1100"/>
+  <path fill="url(#ribbon)" d="M-400 1750C820 1270 760-140 2130-20s1200 1370 2280 1100v730c-1330 180-1380-1680-2620-1510S990 1620-400 2250Z"/>
+  <path fill="none" stroke="url(#rim)" stroke-width="5" d="M-400 1750C820 1270 760-140 2130-20s1200 1370 2280 1100"/>
+  <path fill="none" stroke="#9aa7cf" stroke-opacity=".08" stroke-width="2" d="M-270 1940C850 1480 1010 210 2120 350s1400 1240 2150 1010"/>
+</svg>

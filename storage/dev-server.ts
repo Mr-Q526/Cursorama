@@ -79,6 +79,10 @@ export function localLibraryPlugin(options: LocalLibraryPluginOptions = {}): Plu
           const url = new URL(request.url ?? '', `http://${allowedHost}`);
           const parts = url.pathname.slice(LIBRARY_API.length + 1).split('/');
           if (request.method === 'GET' && parts[0] === 'list') { json(response, await library.list()); return; }
+          if (request.method === 'GET' && parts[0] === 'cover') {
+            const binary = path.resolve('node_modules/ffmpeg-static/ffmpeg.exe');
+            json(response, { cover: await library.cover(url.searchParams.get('id') ?? '', binary, url.searchParams.get('video') ?? undefined) }); return;
+          }
           if (request.method === 'POST' && parts[0] === 'configure') {
             const settings: unknown = JSON.parse(Buffer.from(await body(request)).toString());
             json(response, await library.configure(settings as StorageSettings)); return;

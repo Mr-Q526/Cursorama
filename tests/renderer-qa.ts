@@ -5,6 +5,7 @@ import { createDemoProject, DEMO, drawDemo, loadVideo, prepareRecording, renderE
 export { prepareRecordingUI, cancelCountdownUI, startCountdownUI } from './recording-ui-qa';
 export { runFullscreenControlsQA, runRoundedFrameQA } from './preview-ui-qa';
 export { runGlassFrameQA } from './frame-glass-qa';
+export { runEditingUIQA, restoreEditingUIQA } from './editing-ui-qa';
 
 export async function runExportQualityQA() {
   const demo = createDemoProject();
@@ -97,25 +98,37 @@ export { runLibraryUIQA, restoreLibraryUIQA } from './library-ui-qa';
 export { runNavigationUIQA, setThemeUI, navigatePageUI, openSettingsUI, closeSettingsUI } from './navigation-ui-qa';
 
 export async function runWallpaperQA() {
-  const { prepareBackground, WALLPAPER_ASSETS } = await import('../src/engine/backgrounds');
+  const { BackgroundRenderer, prepareBackground, WALLPAPER_ASSETS } = await import('../src/engine/backgrounds');
   const { WALLPAPER_IDS } = await import('../shared');
-  const canvas = document.createElement('canvas'); canvas.width = 1280; canvas.height = 720;
-  const board = document.createElement('canvas'); board.width = 1536; board.height = 864;
+  const layout = { width: 1280, height: 720, columns: 3, tileWidth: 640, tileHeight: 360, samplePositions: [0.08, 0.5, 0.92], colorChannels: 3, opaqueAlpha: 255, minimumMeanColorDifference: 3 } as const;
+  const canvas = document.createElement('canvas'); canvas.width = layout.width; canvas.height = layout.height;
+  const board = document.createElement('canvas'); board.width = layout.columns * layout.tileWidth; board.height = Math.ceil(WALLPAPER_IDS.length / layout.columns) * layout.tileHeight;
   const context = board.getContext('2d');
-  if (!context) throw new Error('QA_BACKGROUND_CANVAS_UNAVAILABLE');
+  const frame = canvas.getContext('2d');
+  if (!context || !frame) throw new Error('QA_BACKGROUND_CANVAS_UNAVAILABLE');
   const renderer = new VideoRenderer(canvas);
-  const colors: string[] = [];
+  const backgroundRenderer = new BackgroundRenderer();
+  const signatures: number[][] = [];
   try {
     for (const [index, background] of WALLPAPER_IDS.entries()) {
       await prepareBackground(background);
-      renderer.render({ ...createDemoProject(), settings: { ...DEFAULT_SETTINGS, background, backgroundBlur: 4, backgroundDim: 10 } }, 0);
-      const pixel = canvas.getContext('2d')?.getImageData(1, 1, 1, 1).data;
-      if (!pixel || pixel[3] !== 255) throw new Error('QA_WALLPAPER_FRAME_EMPTY');
-      colors.push(Array.from(pixel).join(','));
-      context.drawImage(canvas, (index % 2) * 768, Math.floor(index / 2) * 432, 768, 432);
+      const settings = { ...DEFAULT_SETTINGS, background, backgroundBlur: 4, backgroundDim: 10 };
+      backgroundRenderer.render(frame, layout.width, layout.height, settings);
+      const signature: number[] = [];
+      for (const y of layout.samplePositions) for (const x of layout.samplePositions) {
+        const pixel = frame.getImageData(Math.floor(x * layout.width), Math.floor(y * layout.height), 1, 1).data;
+        if (pixel[layout.colorChannels] !== layout.opaqueAlpha) throw new Error('QA_WALLPAPER_FRAME_EMPTY');
+        signature.push(...Array.from(pixel.slice(0, layout.colorChannels)));
+      }
+      for (const previous of signatures) {
+        const difference = signature.reduce((sum, value, channel) => sum + Math.abs(value - previous[channel]), 0) / signature.length;
+        if (difference < layout.minimumMeanColorDifference) throw new Error(`QA_WALLPAPERS_NOT_DISTINCT_${background}`);
+      }
+      signatures.push(signature);
+      renderer.render({ ...createDemoProject(), settings }, 0);
+      context.drawImage(canvas, (index % layout.columns) * layout.tileWidth, Math.floor(index / layout.columns) * layout.tileHeight, layout.tileWidth, layout.tileHeight);
       if (!WALLPAPER_ASSETS[background].image) throw new Error('QA_WALLPAPER_ASSET_MISSING');
     }
-    if (new Set(colors).size !== WALLPAPER_IDS.length) throw new Error('QA_WALLPAPERS_NOT_DISTINCT');
     return { count: WALLPAPER_IDS.length, coverAndFilters: true, image: board.toDataURL('image/png') };
-  } finally { renderer.dispose(); }
+  } finally { renderer.dispose(); backgroundRenderer.dispose(); }
 }

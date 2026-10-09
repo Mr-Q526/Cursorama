@@ -1,4 +1,7 @@
 import { ASPECTS, BACKGROUNDS, BACKGROUND_LIMITS, DEFAULT_SETTINGS, FRAME_LIMITS, PRESETS } from './constants';
+import { isLibraryCover } from './covers';
+import { parseEditingTimeline, parseMediaAssets, timelineDuration } from './editing';
+import { validateProjectMediaPayload } from './media-package';
 import type { MotionClip, PointerSample, ProjectData } from './types';
 
 export const PROJECT_MAGIC = 'CURSOR01';
@@ -25,8 +28,12 @@ export function parseProject(value: unknown): ProjectData {
   if (!isRecord(value) || value.schemaVersion !== 1 || typeof value.name !== 'string' || !inRange(value.duration, 0.01, 86400) ||
     !inRange(value.width, 1, 16384) || !inRange(value.height, 1, 16384) || !Array.isArray(value.samples) || !value.samples.every(isPointer) ||
     !Array.isArray(value.clips) || !value.clips.every(isClip) || !isRecord(value.settings) ||
-    !inRange(value.trimStart, 0, value.duration) || !inRange(value.trimEnd, 0, value.duration) || value.trimEnd <= value.trimStart ||
     (value.sourceType !== 'demo' && value.sourceType !== 'video')) throw new Error('INVALID_PROJECT');
+  const mediaAssets = parseMediaAssets(value.mediaAssets);
+  const editing = parseEditingTimeline(value.editing, mediaAssets, value.duration);
+  const duration = timelineDuration({ duration: value.duration, editing });
+  if (!inRange(value.trimStart, 0, duration) || !inRange(value.trimEnd, 0, duration) || value.trimEnd <= value.trimStart) throw new Error('INVALID_PROJECT');
+  if (value.libraryCover !== undefined && !isLibraryCover(value.libraryCover)) throw new Error('INVALID_LIBRARY_COVER');
   const settings = value.settings;
   if (value.cursorEmbedded !== undefined && typeof value.cursorEmbedded !== 'boolean') throw new Error('INVALID_CURSOR_SOURCE');
   if (typeof settings.mode !== 'string' || !(settings.mode in PRESETS) || typeof settings.background !== 'string' || !(settings.background in BACKGROUNDS) ||
@@ -47,11 +54,15 @@ export function parseProject(value: unknown): ProjectData {
     trimStart: value.trimStart, trimEnd: value.trimEnd,
     sourceType: value.sourceType, hasAudio: value.hasAudio === true,
     cursorEmbedded: value.cursorEmbedded ?? value.sourceType === 'video',
+    ...(value.libraryCover !== undefined ? { libraryCover: value.libraryCover } : {}),
+    ...(editing !== undefined ? { editing } : {}),
+    ...(mediaAssets !== undefined ? { mediaAssets } : {}),
   };
 }
 
 export function projectBytes(data: ProjectData, video?: ArrayBuffer): Uint8Array {
   const metadata = new TextEncoder().encode(JSON.stringify(data));
+  if (metadata.length > MAX_PROJECT_HEADER) throw new Error('PROJECT_HEADER_TOO_LARGE');
   const payload = video ? new Uint8Array(video) : new Uint8Array();
   const result = new Uint8Array(PROJECT_HEADER_SIZE + metadata.length + payload.length);
   result.set(new TextEncoder().encode(PROJECT_MAGIC));
@@ -67,6 +78,6 @@ export function readProjectBytes(bytes: Uint8Array): { data: ProjectData; bytes?
   const metadata: unknown = JSON.parse(new TextDecoder().decode(bytes.subarray(PROJECT_HEADER_SIZE, PROJECT_HEADER_SIZE + length))) as unknown;
   const data = parseProject(metadata);
   const payload = Uint8Array.from(bytes.subarray(PROJECT_HEADER_SIZE + length));
-  if (data.sourceType === 'video' && payload.length === 0) throw new Error('MISSING_VIDEO');
+  validateProjectMediaPayload(data, payload.length ? payload.buffer : undefined);
   return { data, bytes: payload.length ? payload.buffer as ArrayBuffer : undefined };
 }

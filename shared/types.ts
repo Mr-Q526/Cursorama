@@ -4,14 +4,14 @@ import type { RecordingCommand, RecordingOverlayState, RecordingProgress } from 
 
 export type EffectMode = 'focus' | 'cinematic' | 'orbit' | 'overview';
 export type NeutralBackgroundId = 'silver' | 'smoke' | 'graphite' | 'charcoal' | 'ink' | 'paper';
-export type WallpaperId = 'bloom' | 'silk' | 'aurora' | 'dunes';
+export type WallpaperId = 'bloom' | 'silk' | 'aurora' | 'dunes' | 'cobalt' | 'prism' | 'coast' | 'sunrise' | 'pearl' | 'slate' | 'mist' | 'midnight';
 export type BackgroundId = NeutralBackgroundId | WallpaperId;
 export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:3';
 export type CursorStyle = 'arrow' | 'dot' | 'none';
 export type ExportResolution = '720p' | '1080p' | '1440p' | '2160p';
 export type ExportFormat = 'mp4' | 'webm';
 export type ExportFps = 30 | 60;
-export type EditorTab = 'motion' | 'cursor' | 'background' | 'canvas';
+export type EditorTab = 'motion' | 'cursor' | 'background' | 'canvas' | 'edit';
 
 export interface PointerSample {
   time: number;
@@ -54,6 +54,53 @@ export interface VisualSettings {
   spotlight: boolean;
 }
 
+export interface MediaAssetData {
+  id: string;
+  name: string;
+  kind: 'video' | 'audio';
+  mimeType: string;
+  duration: number;
+  width?: number;
+  height?: number;
+  hasAudio?: boolean;
+}
+
+export interface MediaAsset extends MediaAssetData {
+  url: string;
+  blob: Blob;
+}
+
+export interface VideoSegment {
+  id: string;
+  mediaId: string;
+  sourceIn: number;
+  sourceOut: number;
+  speed: number;
+  volume: number;
+}
+
+export interface MusicClip {
+  id: string;
+  mediaId: string;
+  start: number;
+  sourceIn: number;
+  sourceOut: number;
+  volume: number;
+}
+
+export interface SubtitleClip {
+  id: string;
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface EditingTimeline {
+  segments: VideoSegment[];
+  music: MusicClip[];
+  subtitles: SubtitleClip[];
+}
+
 export interface ProjectData {
   schemaVersion: 1;
   name: string;
@@ -68,11 +115,15 @@ export interface ProjectData {
   sourceType: 'demo' | 'video';
   hasAudio: boolean;
   cursorEmbedded?: boolean;
+  libraryCover?: string;
+  editing?: EditingTimeline;
+  mediaAssets?: MediaAssetData[];
 }
 
 export interface Project extends ProjectData {
   videoUrl?: string;
   videoBlob?: Blob;
+  media?: Record<string, MediaAsset>;
   hasAudio: boolean;
 }
 
@@ -132,6 +183,7 @@ export interface LibraryVideo {
   format: ExportFormat;
   createdAt: string;
   size: number;
+  cover?: string;
 }
 
 export interface LibraryProject {
@@ -143,6 +195,7 @@ export interface LibraryProject {
   width: number;
   height: number;
   videos: LibraryVideo[];
+  cover?: string;
 }
 
 export interface LibrarySnapshot {
@@ -201,6 +254,7 @@ export interface DesktopBridge {
   revealStorageDirectory(target: StorageTarget): Promise<void>;
   openLibraryProject(projectId: string): Promise<StoredProject>;
   openLibraryVideo(projectId: string, videoId: string): Promise<ArrayBuffer>;
+  getLibraryCover(projectId: string, videoId?: string): Promise<string | null>;
   revealLibrary(projectId?: string, videoId?: string): Promise<void>;
   revealFile(path: string): Promise<void>;
   onEncodeProgress(callback: (progress: number) => void): () => void;

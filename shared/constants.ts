@@ -31,6 +31,7 @@ export const IPC = {
   libraryRevealDirectory: 'library:reveal-directory',
   libraryProject: 'library:project',
   libraryVideo: 'library:video',
+  libraryCover: 'library:cover',
   libraryReveal: 'library:reveal',
   reveal: 'file:reveal',
   updateGet: 'updates:get',
@@ -93,9 +94,17 @@ export const BACKGROUNDS: Record<BackgroundId, readonly [string, string, string]
   silk: ['#f4f4f3', '#d7d8da', '#9a9da2'],
   aurora: ['#c3b1e1', '#8766bf', '#171d50'],
   dunes: ['#8ca3bb', '#eedac6', '#b77c5d'],
+  cobalt: ['#07142c', '#497fc3', '#122653'],
+  prism: ['#eef3f9', '#c6d2e8', '#9fadd0'],
+  coast: ['#a7c5d5', '#dce6e8', '#d0b49c'],
+  sunrise: ['#e1b7c5', '#efc9af', '#ce846e'],
+  pearl: ['#f6f6f4', '#e3e3e0', '#bfc2c2'],
+  slate: ['#202226', '#474b53', '#111318'],
+  mist: ['#e9e9e6', '#f5f4f0', '#b6b7b5'],
+  midnight: ['#10111c', '#292640', '#080910'],
 };
 
-export const WALLPAPER_IDS = ['bloom', 'silk', 'aurora', 'dunes'] as const;
+export const WALLPAPER_IDS = ['bloom', 'silk', 'aurora', 'dunes', 'cobalt', 'prism', 'coast', 'sunrise', 'pearl', 'slate', 'mist', 'midnight'] as const;
 export const NEUTRAL_BACKGROUND_IDS = ['silver', 'smoke', 'graphite', 'charcoal', 'ink', 'paper'] as const;
 export const BACKGROUND_LIMITS = { blur: 24, dim: 60, referenceHeight: 1080, blurOverscan: 3 } as const;
 export const FRAME_LIMITS = { edgeGlass: 100, referenceWidth: 1280, glassOutset: 16, glassBlur: 14, glassFeather: 2 } as const;

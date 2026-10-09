@@ -13,6 +13,8 @@ import { playbackCatalog } from './playback';
 import { recorderControlsCatalog } from './recorder-controls';
 import { teleprompterCatalog } from './teleprompter';
 import { frameCatalog } from './frame';
+import { coverCatalog } from './covers';
+import { editingCatalog } from './editing';
 
 export { editorCatalog, demoCatalog, exportCatalog, recordingCatalog, appearanceCatalog };
 export * from './library';
@@ -26,7 +28,9 @@ export * from './playback';
 export * from './recorder-controls';
 export * from './teleprompter';
 export * from './frame';
-export const t = { editor: editorCatalog, demo: demoCatalog, export: exportCatalog, recording: recordingCatalog, appearance: appearanceCatalog, library: libraryCatalog, background: backgroundCatalog, navigation: navigationCatalog, settings: settingsCatalog, updates: updatesCatalog, window: windowCatalog, playback: playbackCatalog, recorderControls: recorderControlsCatalog, teleprompter: teleprompterCatalog, frame: frameCatalog };
+export * from './covers';
+export * from './editing';
+export const t = { editor: editorCatalog, demo: demoCatalog, export: exportCatalog, recording: recordingCatalog, appearance: appearanceCatalog, library: libraryCatalog, background: backgroundCatalog, navigation: navigationCatalog, settings: settingsCatalog, updates: updatesCatalog, window: windowCatalog, playback: playbackCatalog, recorderControls: recorderControlsCatalog, teleprompter: teleprompterCatalog, frame: frameCatalog, covers: coverCatalog, editing: editingCatalog };
 export const formatTime = (seconds: number): string => {
   const safeSeconds = Math.max(0, seconds);
   return `${Math.floor(safeSeconds / 60).toString().padStart(2, '0')}:${Math.floor(safeSeconds % 60).toString().padStart(2, '0')}`;

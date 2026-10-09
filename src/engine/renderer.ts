@@ -1,4 +1,4 @@
-import { ASPECTS, MOTION, TIME } from '../../shared';
+import { ASPECTS, MOTION, resolveTimeline, TIME } from '../../shared';
 import type { CameraState, Project, VisualSettings } from '../../shared';
 import { cameraAt, clamp } from './motion';
 import { DEMO, drawDemo } from './demo';
@@ -7,6 +7,7 @@ import { hasEmbeddedCursor } from './quality';
 import { BackgroundRenderer } from './backgrounds';
 import { FrameGlass, frameMaterial, GLASS_MATERIAL } from './frame-glass';
 import type { FrameMaterial } from './frame-glass';
+import { drawSubtitles } from './subtitles';
 
 const RENDER = {
   cursorReferenceWidth: 1600, clickRadius: 52, spotlightRadius: 145,
@@ -139,17 +140,18 @@ export class VideoRenderer {
 
   render(project: Project, time: number, video?: HTMLVideoElement | null, original = false): CameraState {
     const settings = project.settings;
-    const camera = cameraAt(time, project.samples, project.clips, settings);
+    const mapping = resolveTimeline(project, time);
+    const camera = cameraAt(mapping.sourceTime, mapping.samples, mapping.clips, settings);
     if (original) { camera.zoom = 1; camera.x = 0.5; camera.y = 0.5; camera.rotateX = 0; camera.rotateY = 0; }
     let input: CanvasImageSource;
-    if (project.sourceType === 'demo') {
-      drawDemo(this.demoContext, time); input = this.demoCanvas;
+    if (mapping.sourceType === 'demo') {
+      drawDemo(this.demoContext, mapping.sourceTime); input = this.demoCanvas;
     } else if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) input = video;
-    else { this.drawBackground(settings); return camera; }
+    else { this.drawBackground(settings); drawSubtitles(this.output, project.editing?.subtitles ?? [], time, this.canvas.width, this.canvas.height); return camera; }
     this.drawBackground(settings);
     const backdropChanged = this.glass.prepare(this.canvas, settings);
     const { width, height } = this.canvas;
-    const { width: frameWidth, height: frameHeight } = frameGeometry(width, height, project.width, project.height, settings.padding);
+    const { width: frameWidth, height: frameHeight } = frameGeometry(width, height, mapping.width, mapping.height, settings.padding);
     const material = frameMaterial(settings, width, frameWidth, frameHeight);
     const sourceWidth = Math.round(frameWidth);
     const sourceHeight = Math.round(frameHeight);
@@ -157,12 +159,12 @@ export class VideoRenderer {
       this.sourceCanvas.width = sourceWidth; this.sourceCanvas.height = sourceHeight;
     }
     this.source.clearRect(0, 0, sourceWidth, sourceHeight);
-    const cropWidth = project.width / camera.zoom;
-    const cropHeight = project.height / camera.zoom;
-    const cropX = clamp(camera.x * project.width - cropWidth / 2, 0, project.width - cropWidth);
-    const cropY = clamp(camera.y * project.height - cropHeight / 2, 0, project.height - cropHeight);
+    const cropWidth = mapping.width / camera.zoom;
+    const cropHeight = mapping.height / camera.zoom;
+    const cropX = clamp(camera.x * mapping.width - cropWidth / 2, 0, mapping.width - cropWidth);
+    const cropY = clamp(camera.y * mapping.height - cropHeight / 2, 0, mapping.height - cropHeight);
     this.source.drawImage(input, cropX, cropY, cropWidth, cropHeight, 0, 0, sourceWidth, sourceHeight);
-    if (!original && project.samples.length > 0) this.drawCursor(camera, hasEmbeddedCursor(project) ? { ...settings, cursor: 'none' } : settings, project.width, cropX, cropY, cropWidth, cropHeight);
+    if (!original && mapping.samples.length > 0) this.drawCursor(camera, hasEmbeddedCursor({ ...project, cursorEmbedded: mapping.cursorEmbedded, sourceType: mapping.sourceType }) ? { ...settings, cursor: 'none' } : settings, mapping.width, cropX, cropY, cropWidth, cropHeight);
     const shadow = settings.shadow / 100;
     this.output.save();
     this.output.shadowColor = `rgba(0, 0, 0, ${shadow * RENDER.shadowScale})`;
@@ -176,6 +178,7 @@ export class VideoRenderer {
       this.output.drawImage(surface, (width - frameWidth) / 2 - material.outset, (height - frameHeight) / 2 - material.outset);
     }
     this.output.restore();
+    drawSubtitles(this.output, project.editing?.subtitles ?? [], time, width, height);
     return camera;
   }
 

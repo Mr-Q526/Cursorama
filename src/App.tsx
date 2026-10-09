@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApertureIcon, CheckIcon, CircleIcon, FloppyDiskIcon, MonitorPlayIcon, SparkleIcon, XIcon } from '@phosphor-icons/react';
+import { ApertureIcon, CheckIcon, CircleIcon, DownloadSimpleIcon, FloppyDiskIcon, MonitorPlayIcon, SparkleIcon, XIcon } from '@phosphor-icons/react';
 import type { ChangeEvent } from 'react';
-import type { EditorTab, EffectMode, ExportResult, LibraryProject, LibrarySnapshot, LibraryVideo, MotionClip, Project, ProjectData, RecordingCommand, StorageSettings, StoredProject, VisualSettings } from '../shared';
-import { AUTOSAVE_DELAY, DEFAULT_SETTINGS, PRESETS, PROJECT_EXTENSION, projectBytes, readProjectBytes, TIME } from '../shared';
-import { createDemoProject, downloadBlob, generateClips, loadVideo, recordedFocus, startRecording } from './engine';
+import type { EditorTab, EffectMode, ExportResult, LibraryProject, LibrarySnapshot, LibraryVideo, MotionClip, MusicClip, Project, ProjectData, RecordingCommand, StorageSettings, StoredProject, SubtitleClip, VideoSegment, VisualSettings } from '../shared';
+import { AUTOSAVE_DELAY, DEFAULT_SETTINGS, deleteSegment, EDITING_LIMITS, ensureEditing, getSegments, insertVideoSegment, packProjectMedia, parseEditingTimeline, PRESETS, PROJECT_EXTENSION, projectBytes, readProjectBytes, resolveTimeline, SOURCE_MEDIA_ID, splitSegment, timelineDuration, TIME, updateSegment } from '../shared';
+import { createDemoProject, downloadBlob, generateClips, importMediaFile, loadVideo, projectMetadata, projectPreviewRevision, pruneProjectMedia, recordedFocus, runtimeFromStored, startRecording } from './engine';
 import type { PreparedRecording, RecordingSession } from './engine';
 import { useAppPage, usePlayback, useTheme, useUpdates, type PrompterDraft } from './hooks';
 import { AppHeader, EmptyWorkspace, ExportDialog, ExportPreview, IconButton, Inspector, LibraryPage, LibrarySidebar, Modal, Preview, RecordDialog, RecordingDock, SettingsDialog, Teleprompter, Timeline, UpdateNotice } from './components';
-import { configureLibrary, hasLocalLibrary, listLibrary, openLibraryProject, openLibraryVideo, revealLibrary, saveLibraryProject } from './library';
+import { configureLibrary, hasLocalLibrary, listLibrary, openLibraryProject, openLibraryVideo, previewLibraryCover, revealLibrary, saveLibraryProject } from './library';
 import type { LibraryVideoSource } from './library';
+import type { EditSelection } from './components';
 import { formatTime, t } from './i18n';
 
 export type AppDialog = 'record' | 'export' | 'guide' | 'settings' | null;
@@ -16,17 +17,14 @@ interface VideoSelection { projectId: string; video: LibraryVideo; source: Libra
 interface PendingSave { project: Project; promise: Promise<ExportResult>; }
 
 function dataFromProject(project: Project): ProjectData {
-  return {
-    schemaVersion: 1, name: project.name, duration: project.duration, width: project.width, height: project.height,
-    samples: project.samples, clips: project.clips, settings: project.settings, trimStart: project.trimStart,
-    trimEnd: project.trimEnd, sourceType: project.sourceType, hasAudio: project.hasAudio, cursorEmbedded: project.cursorEmbedded,
-  };
+  return projectMetadata(project);
 }
 
 function restoredProject(value: StoredProject): Project {
-  const blob = value.bytes ? new Blob([value.bytes], { type: 'video/webm' }) : undefined;
-  return { ...value.data, videoBlob: blob, videoUrl: blob ? URL.createObjectURL(blob) : undefined };
+  return runtimeFromStored(value);
 }
+
+const EDIT_DEFAULTS = { subtitleDuration: 3, musicVolume: 0.65 } as const;
 
 export function App() {
   const updates = useUpdates();
@@ -43,6 +41,8 @@ export function App() {
   const [videoSelection, setVideoSelection] = useState<VideoSelection | null>(null);
   const [tab, setTab] = useState<EditorTab>('motion');
   const [selectedId, setSelectedId] = useState<string>();
+  const [editSelection, setEditSelection] = useState<EditSelection>();
+  const [mediaImporting, setMediaImporting] = useState(false);
   const [original, setOriginal] = useState(false);
   const [dialog, setDialog] = useState<AppDialog>(() => window.location.hash === '#/settings' ? 'settings' : null);
   const [toast, setToast] = useState('');
@@ -56,9 +56,13 @@ export function App() {
   const countdownAbort = useRef<AbortController | null>(null);
   const stopRef = useRef<() => Promise<void>>(async () => undefined);
   const recordingCommandRef = useRef<(command: RecordingCommand) => void>(() => undefined);
+  const deleteEditRef = useRef<() => void>(() => undefined);
   const videoInput = useRef<HTMLInputElement>(null);
   const projectInput = useRef<HTMLInputElement>(null);
+  const mediaInput = useRef<HTMLInputElement>(null);
+  const mediaKind = useRef<'video' | 'audio'>('video');
   const previousUrl = useRef<string | undefined>(undefined);
+  const previousMediaUrls = useRef(new Set<string>());
   const currentRef = useRef({ project, projectId, key: 0 });
   const pendingSave = useRef<PendingSave | null>(null);
   currentRef.current.project = project;
@@ -67,7 +71,7 @@ export function App() {
   const { theme, setTheme } = useTheme();
   const { page, navigate } = useAppPage();
   const copy = t.editor;
-  const busy = recording || processing || loading || saving || storageBusy || countdown !== null || preparingUpdate || updates.state.status === 'installing';
+  const busy = recording || processing || loading || mediaImporting || saving || storageBusy || countdown !== null || preparingUpdate || updates.state.status === 'installing';
   const notify = useCallback((message: string) => setToast(message), []);
 
   const refreshLibrary = useCallback(async (): Promise<void> => {
@@ -88,7 +92,11 @@ export function App() {
     const key = currentRef.current.key;
     setSaving(true);
     const promise = (async (): Promise<ExportResult> => {
-      const result = await saveLibraryProject(dataFromProject(next), await next.videoBlob?.arrayBuffer(), id);
+      const data = dataFromProject(next);
+      const renderedRevision = document.querySelector<HTMLCanvasElement>('.preview-stage canvas')?.dataset.projectRevision;
+      const cover = next === currentRef.current.project && renderedRevision === projectPreviewRevision(next) ? previewLibraryCover() : undefined;
+      if (cover) data.libraryCover = cover;
+      const result = await saveLibraryProject(data, await packProjectMedia(next), id);
       if (!result.projectId || result.cancelled) throw new Error('PROJECT_SAVE_INCOMPLETE');
       if (currentRef.current.key === key) {
         currentRef.current.projectId = result.projectId;
@@ -108,12 +116,12 @@ export function App() {
     if (page !== 'workspace') { playback.pause(); void refreshLibrary(); }
   }, [page, playback.pause, refreshLibrary]);
   useEffect(() => {
-    if (!project || !dirty || !hasLocalLibrary || (project.sourceType === 'demo' && !projectId) || recording || processing || loading || storageBusy || countdown !== null) return;
+    if (!project || !dirty || !hasLocalLibrary || (project.sourceType === 'demo' && !projectId && !project.mediaAssets?.length) || recording || processing || loading || mediaImporting || storageBusy || countdown !== null) return;
     const timeout = setTimeout(() => {
       void persist(project, projectId).catch((error: unknown) => { console.error('AUTOSAVE_FAILED', error); notify(t.library.saveFailed); });
     }, AUTOSAVE_DELAY);
     return () => clearTimeout(timeout);
-  }, [project, projectId, dirty, recording, processing, loading, storageBusy, countdown, persist, notify]);
+  }, [project, projectId, dirty, recording, processing, loading, mediaImporting, storageBusy, countdown, persist, notify]);
   useEffect(() => {
     const focus = (): void => { if (!recording && !processing && !loading) void refreshLibrary(); };
     window.addEventListener('focus', focus); return () => window.removeEventListener('focus', focus);
@@ -124,6 +132,12 @@ export function App() {
     previousUrl.current = project?.videoUrl;
   }, [project?.videoUrl]);
   useEffect(() => () => { if (previousUrl.current) URL.revokeObjectURL(previousUrl.current); }, []);
+  useEffect(() => {
+    const urls = new Set(Object.values(project?.media ?? {}).map((asset) => asset.url));
+    for (const url of previousMediaUrls.current) if (!urls.has(url)) URL.revokeObjectURL(url);
+    previousMediaUrls.current = urls;
+  }, [project?.media]);
+  useEffect(() => () => { for (const url of previousMediaUrls.current) URL.revokeObjectURL(url); }, []);
   useEffect(() => () => { if (videoSelection?.source.revoke) URL.revokeObjectURL(videoSelection.source.url); }, [videoSelection]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent): void => {
@@ -132,6 +146,7 @@ export function App() {
       if (event.code === 'Space') { event.preventDefault(); void playback.toggle(); }
       if (event.code === 'ArrowLeft') { event.preventDefault(); playback.seek(playback.timeRef.current - 1); }
       if (event.code === 'ArrowRight') { event.preventDefault(); playback.seek(playback.timeRef.current + 1); }
+      if (event.code === 'Delete' || event.code === 'Backspace') { event.preventDefault(); deleteEditRef.current(); }
     };
     window.addEventListener('keydown', keydown); return () => window.removeEventListener('keydown', keydown);
   }, [page, project, videoSelection, dialog, busy, playback.toggle, playback.seek, playback.timeRef]);
@@ -156,23 +171,102 @@ export function App() {
   const settingsChanged = (settings: Partial<VisualSettings>): void => updateProject((current) => ({ ...current, settings: { ...current.settings, ...settings }, clips: settings.zoom === undefined ? current.clips : current.clips.map((clip) => ({ ...clip, zoom: settings.zoom ?? clip.zoom })) }));
   const presetChanged = (mode: EffectMode): void => updateProject((current) => ({ ...current, settings: { ...current.settings, mode, ...PRESETS[mode] }, clips: current.clips.map((clip) => ({ ...clip, mode, zoom: PRESETS[mode].zoom })) }));
   const clipChanged = (id: string, patch: Partial<MotionClip>): void => updateProject((current) => ({ ...current, clips: current.clips.map((clip) => clip.id === id ? { ...clip, ...patch } : clip).sort((first, second) => first.start - second.start) }));
+  const editProject = (update: (current: Project) => Project): boolean => {
+    const current = currentRef.current.project;
+    if (!current) return false;
+    playback.pause();
+    try {
+      const next = update(current);
+      if (next.editing) parseEditingTimeline(next.editing, next.mediaAssets, next.duration);
+      currentRef.current.project = next;
+      updateProject(() => next);
+      return true;
+    } catch (error) { console.error('VIDEO_EDIT_FAILED', error); notify(t.editing.editFailed); return false; }
+  };
+  const selectEdit = (selection: EditSelection): void => { playback.pause(); setEditSelection(selection); setSelectedId(undefined); setTab('edit'); };
+  const splitAtPlayhead = (): void => {
+    if (!project) return;
+    const mapping = resolveTimeline(project, playback.timeRef.current);
+    editProject((current) => splitSegment(current, mapping.segment.id, playback.timeRef.current));
+    selectEdit({ kind: 'segment', id: mapping.segment.id });
+  };
+  const deleteSelection = (): void => {
+    if (selectedId) { editProject((current) => ({ ...current, clips: current.clips.filter((clip) => clip.id !== selectedId) })); setSelectedId(undefined); return; }
+    if (!editSelection) return;
+    editProject((current) => {
+      if (editSelection.kind === 'segment') return pruneProjectMedia(deleteSegment(current, editSelection.id));
+      const next = ensureEditing(current);
+      if (editSelection.kind === 'music') next.editing.music = next.editing.music.filter((clip) => clip.id !== editSelection.id);
+      else next.editing.subtitles = next.editing.subtitles.filter((clip) => clip.id !== editSelection.id);
+      return pruneProjectMedia(next);
+    });
+    setEditSelection(undefined);
+  };
+  deleteEditRef.current = deleteSelection;
+  const segmentChanged = (id: string, patch: Partial<VideoSegment>): void => { editProject((current) => updateSegment(current, id, patch)); };
+  const musicChanged = (id: string, patch: Partial<MusicClip>): void => { editProject((current) => { const next = ensureEditing(current); next.editing.music = next.editing.music.map((clip) => clip.id === id ? { ...clip, ...patch } : clip); return next; }); };
+  const subtitleChanged = (id: string, patch: Partial<SubtitleClip>): void => { editProject((current) => { const next = ensureEditing(current); next.editing.subtitles = next.editing.subtitles.map((clip) => clip.id === id ? { ...clip, ...patch } : clip); return next; }); };
+  const addSubtitle = (): void => {
+    if (!project) return;
+    const duration = timelineDuration(project);
+    const start = Math.min(playback.timeRef.current, duration - EDITING_LIMITS.minDuration);
+    const id = crypto.randomUUID();
+    editProject((current) => { const next = ensureEditing(current); next.editing.subtitles.push({ id, start, end: Math.min(duration, start + EDIT_DEFAULTS.subtitleDuration), text: t.editing.defaultSubtitle }); return next; });
+    selectEdit({ kind: 'subtitle', id });
+  };
+  const chooseMedia = (kind: 'video' | 'audio'): void => {
+    playback.pause(); mediaKind.current = kind;
+    if (mediaInput.current) { mediaInput.current.accept = kind === 'video' ? 'video/*' : 'audio/*'; mediaInput.current.click(); }
+  };
+  const insertMedia = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (!file || !project) return;
+    const key = currentRef.current.key;
+    const position = playback.timeRef.current;
+    setMediaImporting(true);
+    try {
+      const asset = await importMediaFile(file, mediaKind.current);
+      if (currentRef.current.key !== key) { URL.revokeObjectURL(asset.url); return; }
+      const id = crypto.randomUUID();
+      const applied = editProject((current) => {
+        const { blob: runtimeBlob, url: runtimeUrl, ...metadata } = asset;
+        if (!runtimeBlob.size || !runtimeUrl) throw new Error('MISSING_MEDIA_ASSET');
+        const next = asset.kind === 'video' ? insertVideoSegment(current, metadata, position) : ensureEditing(current);
+        next.media = { ...current.media, [asset.id]: asset };
+        if (asset.kind === 'audio') {
+          next.mediaAssets = [...(current.mediaAssets ?? []), metadata];
+          const duration = timelineDuration(next);
+          const start = Math.min(position, duration - EDITING_LIMITS.minDuration);
+          next.editing?.music.push({ id, mediaId: asset.id, start, sourceIn: 0, sourceOut: Math.min(asset.duration, duration - start), volume: EDIT_DEFAULTS.musicVolume });
+        }
+        return next;
+      });
+      if (!applied) { URL.revokeObjectURL(asset.url); return; }
+      if (asset.kind === 'audio') selectEdit({ kind: 'music', id });
+      else { setEditSelection(undefined); setSelectedId(undefined); setTab('edit'); }
+      notify(t.editing.imported);
+    } catch (error) { console.error('EDIT_MEDIA_IMPORT_FAILED', error); notify(t.editing.importFailed); }
+    finally { setMediaImporting(false); }
+  };
+  const canDeleteSelection = Boolean(selectedId || (editSelection && (editSelection.kind !== 'segment' || (project && getSegments(project).length > 1))));
   const addShot = (): void => {
     if (!project) return;
     playback.pause();
-    const start = Math.max(0, Math.min(playback.timeRef.current, project.duration - 0.25));
+    const mapping = resolveTimeline(project, playback.timeRef.current);
+    if (mapping.mediaId !== SOURCE_MEDIA_ID) return;
+    const start = Math.max(0, Math.min(mapping.sourceTime, project.duration - 0.25));
     const { x, y } = recordedFocus(project.samples, start);
     const id = crypto.randomUUID();
     const clip: MotionClip = { id, start, end: Math.min(project.duration, start + 3), x, y, zoom: project.settings.zoom, mode: project.settings.mode, enabled: true, manual: true };
     updateProject((current) => ({ ...current, clips: [...current.clips, clip].sort((first, second) => first.start - second.start) }));
-    setSelectedId(id); setTab('motion'); playback.seek(start + Math.min(0.7, (clip.end - start) / 2));
+    setSelectedId(id); setEditSelection(undefined); setTab('motion'); playback.seek(mapping.outputStart + (start + Math.min(0.7, (clip.end - start) / 2) - mapping.segment.sourceIn) / mapping.segment.speed);
   };
   const replaceProject = (next: Project | null, id?: string, saved = false): void => {
     playback.pause(); currentRef.current = { project: next, projectId: id, key: currentRef.current.key + 1 };
-    setProject(next); setProjectId(id); setSelectedId(undefined); setOriginal(false); setDirty(Boolean(next) && !saved); setVideoSelection(null);
+    setProject(next); setProjectId(id); setSelectedId(undefined); setEditSelection(undefined); setOriginal(false); setDirty(Boolean(next) && !saved); setVideoSelection(null);
     navigate('workspace');
   };
   const flushCurrent = async (): Promise<void> => {
-    if (project && dirty && hasLocalLibrary && (project.sourceType === 'video' || projectId)) await persist(project, projectId);
+    if (project && dirty && hasLocalLibrary && (project.sourceType === 'video' || projectId || project.mediaAssets?.length)) await persist(project, projectId);
   };
   const configureStorage = async (settings: StorageSettings): Promise<void> => {
     setStorageBusy(true);
@@ -219,7 +313,7 @@ export function App() {
     if (!project) return;
     try {
       if (hasLocalLibrary) await persist(project, projectId);
-      else { downloadBlob(new Blob([projectBytes(dataFromProject(project), await project.videoBlob?.arrayBuffer()).buffer as ArrayBuffer]), `${project.name}.${PROJECT_EXTENSION}`); setDirty(false); }
+      else { downloadBlob(new Blob([projectBytes(dataFromProject(project), await packProjectMedia(project)).buffer as ArrayBuffer]), `${project.name}.${PROJECT_EXTENSION}`); setDirty(false); }
       notify(hasLocalLibrary ? t.library.saved : copy.webProject);
     } catch (error) { console.error('SAVE_FAILED', error); notify(t.library.saveFailed); }
   };
@@ -305,15 +399,15 @@ export function App() {
   };
 
   return <div className={`app-shell${window.desktop ? ' desktop-window' : ''}`}>
-    <LibrarySidebar page={page} disabled={busy} settingsOpen={dialog === 'settings'} onNavigate={navigate} onSettings={() => { playback.pause(); setDialog('settings'); void refreshLibrary(); }} onOpen={() => void open()} onImport={() => videoInput.current?.click()} onDemo={() => void changeWorkspace(createDemoProject())} />
-    <AppHeader page={page} projectName={project?.name} busy={busy} canExport={Boolean(project) && !videoSelection} onBack={() => navigate('workspace')} onRecord={record} onExport={() => { playback.pause(); setDialog('export'); }} />
+    <LibrarySidebar page={page} disabled={busy} settingsOpen={dialog === 'settings'} onNavigate={navigate} onSettings={() => { playback.pause(); setDialog('settings'); void refreshLibrary(); }} onOpen={() => void open()} onImport={() => videoInput.current?.click()} onDemo={() => void changeWorkspace(createDemoProject())} onRecord={record} />
+    <AppHeader page={page} projectName={project?.name} busy={busy} onBack={() => navigate('workspace')} />
     <div className="app-main" data-page={page}>
       {page === 'library' ? <LibraryPage library={library} error={libraryError} loading={libraryLoading} disabled={busy} projectId={videoSelection?.projectId ?? projectId} videoId={videoSelection?.video.id} onProject={(item) => void openStored(item)} onVideo={(item, video) => void openStored(item, video)} onRefresh={() => void refreshLibrary()} onRecord={record} onImport={() => videoInput.current?.click()} /> : videoSelection ? <ExportPreview video={videoSelection.video} url={videoSelection.source.url} onBack={() => setVideoSelection(null)} onReveal={() => void reveal(videoSelection.projectId, videoSelection.video.id)} onError={() => notify(t.library.videoFailed)} /> : project ? <>
-        <div className="project-bar" data-project-id={projectId}><div className="project-title"><span className="project-icon"><MonitorPlayIcon size={20} /></span><div><input aria-label={t.appearance.projectName} className="project-name" value={project.name} maxLength={120} onChange={(event) => { const name = event.currentTarget.value; updateProject((current) => ({ ...current, name })); }} /><div className="project-details"><span>{formatTime(project.duration)}</span><span>·</span><span>{project.width} × {project.height}</span><span>·</span><span>{project.sourceType === 'demo' ? copy.demoBadge : t.library.autoSave}</span></div></div></div><div className="project-tools"><span className="save-status">{dirty || saving ? <CircleIcon size={7} weight="fill" /> : <CheckIcon size={13} />}{saving ? t.library.saving : dirty ? copy.unsaved : t.library.saved}</span>{project.sourceType === 'demo' && <button type="button" className="text-button" data-action="close-demo" disabled={busy} onClick={() => void changeWorkspace(null)}>{t.library.closeDemo}</button>}<button className="text-button" type="button" onClick={() => void save()} disabled={busy}><FloppyDiskIcon size={17} />{copy.saveProject}</button></div></div>
-        <div className="editor-layout"><main className="editor-center"><Preview project={project} playback={playback} original={original} onOriginal={setOriginal} /><Timeline project={project} time={playback.time} selectedId={selectedId} onSeek={playback.seek} onSelect={(id) => { setSelectedId(id); setTab('motion'); }} onAdd={() => addShot()} onRegenerate={() => { updateProject((current) => ({ ...current, clips: [...generateClips(current.samples, current.duration, current.settings.mode, current.settings.zoom), ...current.clips.filter((clip) => clip.manual)].sort((first, second) => first.start - second.start) })); setSelectedId(undefined); notify(copy.regenerateSuccess); }} /></main><Inspector project={project} tab={tab} onTab={setTab} onSettings={settingsChanged} onPreset={presetChanged} selectedClip={project.clips.find((clip) => clip.id === selectedId)} onClip={clipChanged} onDeleteClip={(id) => { updateProject((current) => ({ ...current, clips: current.clips.filter((clip) => clip.id !== id) })); setSelectedId(undefined); }} onTrim={(trimStart, trimEnd) => updateProject((current) => ({ ...current, trimStart, trimEnd }))} /></div>
+        <div className="project-bar" data-project-id={projectId}><div className="project-title"><span className="project-icon"><MonitorPlayIcon size={20} /></span><div><input aria-label={t.appearance.projectName} className="project-name" value={project.name} maxLength={120} onChange={(event) => { const name = event.currentTarget.value; updateProject((current) => ({ ...current, name })); }} /><div className="project-details"><span>{formatTime(timelineDuration(project))}</span><span>·</span><span>{project.width} × {project.height}</span><span>·</span><span>{project.sourceType === 'demo' ? copy.demoBadge : t.library.autoSave}</span></div></div></div><div className="project-tools"><span className="save-status">{dirty || saving ? <CircleIcon size={7} weight="fill" /> : <CheckIcon size={13} />}{saving ? t.library.saving : dirty ? copy.unsaved : t.library.saved}</span>{project.sourceType === 'demo' && <button type="button" className="text-button" data-action="close-demo" disabled={busy} onClick={() => void changeWorkspace(null)}>{t.library.closeDemo}</button>}<button className="text-button" type="button" onClick={() => void save()} disabled={busy}><FloppyDiskIcon size={17} />{copy.saveProject}</button><button type="button" className="primary-button project-export" onClick={() => { playback.pause(); setDialog('export'); }} disabled={busy}><DownloadSimpleIcon size={16} />{copy.exportVideo}</button></div></div>
+        <div className="editor-layout"><main className="editor-center"><Preview project={project} playback={playback} original={original} onOriginal={setOriginal} /><Timeline project={project} time={playback.time} selectedId={selectedId} editSelection={editSelection} canDelete={canDeleteSelection} onSeek={playback.seek} onSelect={(id) => { playback.pause(); setSelectedId(id); setEditSelection(undefined); setTab('motion'); }} onEditSelect={selectEdit} onSplit={splitAtPlayhead} onDelete={deleteSelection} onImportMusic={() => chooseMedia('audio')} onAddSubtitle={addSubtitle} onAdd={() => addShot()} onRegenerate={() => { updateProject((current) => ({ ...current, clips: [...generateClips(current.samples, current.duration, current.settings.mode, current.settings.zoom), ...current.clips.filter((clip) => clip.manual)].sort((first, second) => first.start - second.start) })); setSelectedId(undefined); notify(copy.regenerateSuccess); }} /></main><Inspector project={project} tab={tab} onTab={setTab} onSettings={settingsChanged} onPreset={presetChanged} selectedClip={project.clips.find((clip) => clip.id === selectedId)} onClip={clipChanged} onDeleteClip={(id) => { updateProject((current) => ({ ...current, clips: current.clips.filter((clip) => clip.id !== id) })); setSelectedId(undefined); }} onTrim={(trimStart, trimEnd) => updateProject((current) => ({ ...current, trimStart, trimEnd }))} editing={{ time: playback.time, selection: editSelection, importing: mediaImporting, onSplit: splitAtPlayhead, onDelete: deleteSelection, onImport: chooseMedia, onAddSubtitle: addSubtitle, onSelect: selectEdit, onSegment: segmentChanged, onMusic: musicChanged, onSubtitle: subtitleChanged }} /></div>
       </> : <EmptyWorkspace onRecord={record} onImport={() => videoInput.current?.click()} onOpen={() => void open()} disabled={busy} />}
     </div>
-    <input type="file" className="visually-hidden" ref={videoInput} accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onChange={(event) => void importVideo(event)} /><input type="file" className="visually-hidden" ref={projectInput} accept={`.${PROJECT_EXTENSION}`} onChange={(event) => void importProject(event)} />
+    <input type="file" className="visually-hidden" ref={videoInput} accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onChange={(event) => void importVideo(event)} /><input type="file" className="visually-hidden" ref={projectInput} accept={`.${PROJECT_EXTENSION}`} onChange={(event) => void importProject(event)} /><input type="file" className="visually-hidden" ref={mediaInput} data-editing-media accept="video/*,audio/*" onChange={(event) => void insertMedia(event)} />
     {dialog === 'record' && <RecordDialog onClose={() => setDialog(null)} onStart={beginRecording} />}
     {dialog === 'settings' && <SettingsDialog theme={theme} onTheme={setTheme} library={library} loading={libraryLoading} error={libraryError} onSave={configureStorage} onClose={() => setDialog(null)} onRefresh={() => void refreshLibrary()} onGuide={() => setDialog('guide')} updates={updates} onInstallUpdate={installUpdate} installing={preparingUpdate || updates.state.status === 'installing'} />}
     {!busy && !dialog && <UpdateNotice state={updates.state} onOpen={() => { playback.pause(); setDialog('settings'); void refreshLibrary(); }} />}

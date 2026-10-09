@@ -4,3 +4,6 @@ export * from './project';
 export * from './updates';
 export * from './window';
 export * from './recording';
+export * from './editing';
+export * from './media-package';
+export * from './covers';

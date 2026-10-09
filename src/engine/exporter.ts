@@ -1,10 +1,11 @@
-import { MEDIA_MIME, RESOLUTIONS, TIME } from '../../shared';
+import { MEDIA_MIME, RESOLUTIONS, resolveTimeline, timelineDuration, TIME } from '../../shared';
 import type { ExportOptions, ExportResult, Project } from '../../shared';
 import { t } from '../i18n';
 import { VideoRenderer, canvasDimensions } from './renderer';
 import { exportBitrate } from './quality';
 import { exportLibraryVideo, hasLocalLibrary } from '../library';
 import { prepareBackground } from './backgrounds';
+import { TimelineMediaController } from './timeline-media';
 
 const EXPORT_PROGRESS = { render: 0.88, encoding: 0.12 } as const;
 const EXPORT_STARTUP_TIMEOUT = 30_000;
@@ -66,24 +67,22 @@ export async function renderExport(project: Project, options: ExportOptions, onP
   const canvas = document.createElement('canvas');
   [canvas.width, canvas.height] = canvasDimensions(project.settings.aspect, RESOLUTIONS[options.resolution]);
   const renderer = new VideoRenderer(canvas);
-  let video: HTMLVideoElement | undefined;
-  let audio: AudioContext | undefined;
+  let media: TimelineMediaController | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stream: MediaStream | undefined;
   let capturePreview: HTMLVideoElement | undefined;
   let unsubscribe: (() => void) | undefined;
   let mediaRecorder: MediaRecorder | undefined;
   let removeAbortListener: (() => void) | undefined;
-  const duration = project.trimEnd - project.trimStart;
+  const exportEnd = Math.min(project.trimEnd, timelineDuration(project));
+  const duration = exportEnd - project.trimStart;
   const chunks: Blob[] = [];
   try {
     await prepareBackground(project.settings.background);
-    if (project.sourceType === 'video' && project.videoUrl) {
-      video = await loadVideo(project.videoUrl);
-      await seekVideo(video, project.trimStart);
-    }
+    media = await TimelineMediaController.create(project, 'export', signal);
+    await media.seek(project, project.trimStart, signal);
     if (signal.aborted) throw new DOMException(t.export.cancelled, 'AbortError');
-    renderer.render(project, project.trimStart, video);
+    renderer.render(project, project.trimStart, media.video);
     stream = canvas.captureStream(options.fps);
     capturePreview = document.createElement('video');
     capturePreview.muted = true; capturePreview.playsInline = true; capturePreview.srcObject = stream;
@@ -98,22 +97,18 @@ export async function renderExport(project: Project, options: ExportOptions, onP
       signal.addEventListener('abort', aborted, { once: true });
       void preview.play().catch(failed);
     });
-    if (video && project.hasAudio) {
-      audio = new AudioContext();
-      const input = audio.createMediaElementSource(video);
-      const destination = audio.createMediaStreamDestination();
-      input.connect(destination);
-      await audio.resume();
-      destination.stream.getAudioTracks().forEach((track) => stream?.addTrack(track));
-    } else if (video) video.muted = true;
+    await media.prepareAudio(project);
+    media.audioStream?.getAudioTracks().forEach((track) => stream?.addTrack(track));
     const mimeType = MEDIA_MIME.find((candidate) => MediaRecorder.isTypeSupported(candidate));
     if (!mimeType) throw new Error('MEDIA_RECORDER_UNAVAILABLE');
     const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: exportBitrate(canvas.width, canvas.height, options), audioBitsPerSecond: 192_000 });
     mediaRecorder = recorder;
     const captureTrack = stream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack;
-    await startExportCapture(recorder, signal, options.fps, () => { renderer.render(project, project.trimStart, video); captureTrack.requestFrame(); });
+    await startExportCapture(recorder, signal, options.fps, () => { renderer.render(project, project.trimStart, media?.video); captureTrack.requestFrame(); });
     if (signal.aborted) throw new DOMException(t.export.cancelled, 'AbortError');
+    let rejectRendered: (error: unknown) => void = () => undefined;
     const rendered = new Promise<Blob>((resolve, reject) => {
+      rejectRendered = reject;
       recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
       recorder.onerror = () => reject(new Error('MEDIA_RECORDER_FAILED'));
       recorder.onstop = () => signal.aborted ? reject(new DOMException(t.export.cancelled, 'AbortError')) : resolve(new Blob(chunks, { type: mimeType }));
@@ -122,28 +117,35 @@ export async function renderExport(project: Project, options: ExportOptions, onP
     const abort = (): void => { aborted = true; if (recorder.state !== 'inactive') recorder.stop(); };
     signal.addEventListener('abort', abort, { once: true });
     removeAbortListener = () => signal.removeEventListener('abort', abort);
-    const startedAt = performance.now();
-    if (video) {
-      try { await video.play(); }
-      catch (error) {
-        if (!(error instanceof DOMException && error.name === 'AbortError' && video.ended && !signal.aborted)) throw error;
-      }
-    }
-    const draw = (): void => {
+    let time = project.trimStart;
+    let lastFrame = performance.now();
+    let activeSegment = resolveTimeline(project, time).segment.id;
+    media.sync(project, time, true, false);
+    const draw = async (): Promise<void> => {
       if (aborted || recorder.state === 'inactive') return;
-      const elapsed = (performance.now() - startedAt) / TIME.milliseconds;
-      const time = video && !video.ended ? video.currentTime : project.trimStart + elapsed;
-      renderer.render(project, Math.min(time, project.trimEnd), video);
+      const now = performance.now();
+      time = Math.min(exportEnd, time + (now - lastFrame) / TIME.milliseconds); lastFrame = now;
+      const segmentId = resolveTimeline(project, time).segment.id;
+      if (segmentId !== activeSegment && media) {
+        recorder.pause();
+        await media.seek(project, time, signal);
+        if (aborted || signal.aborted) return;
+        activeSegment = segmentId;
+        renderer.render(project, time, media.video); captureTrack.requestFrame();
+        recorder.resume(); lastFrame = performance.now();
+      }
+      media?.sync(project, time, true, false);
+      renderer.render(project, time, media?.video);
       captureTrack.requestFrame();
       onProgress({ progress: Math.min(1, (time - project.trimStart) / duration) * EXPORT_PROGRESS.render, phase: 'rendering' });
-      if (time >= project.trimEnd - 1 / options.fps || elapsed >= duration + 2) timer = setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, TIME.milliseconds / options.fps);
-      else timer = setTimeout(draw, TIME.milliseconds / options.fps);
+      if (time >= exportEnd - 1 / options.fps) timer = setTimeout(() => { media?.pause(); if (recorder.state !== 'inactive') recorder.stop(); }, TIME.milliseconds / options.fps);
+      else timer = setTimeout(() => { void draw().catch((error: unknown) => { rejectRendered(error); if (recorder.state !== 'inactive') recorder.stop(); }); }, TIME.milliseconds / options.fps);
     };
-    draw();
+    void draw().catch((error: unknown) => { rejectRendered(error); if (recorder.state !== 'inactive') recorder.stop(); });
     const blob = await rendered;
     if (blob.size === 0) throw new Error('EXPORT_CAPTURE_EMPTY');
     signal.removeEventListener('abort', abort);
-    video?.pause();
+    media.pause();
     if (signal.aborted) throw new DOMException(t.export.cancelled, 'AbortError');
     if (hasLocalLibrary) {
       onProgress({ progress: EXPORT_PROGRESS.render, phase: 'encoding' });
@@ -162,10 +164,8 @@ export async function renderExport(project: Project, options: ExportOptions, onP
     unsubscribe?.();
     capturePreview?.pause();
     if (capturePreview) capturePreview.srcObject = null;
-    video?.pause();
-    if (video) { video.removeAttribute('src'); video.load(); }
+    if (media) await media.dispose();
     stream?.getTracks().forEach((track) => track.stop());
-    if (audio) await audio.close();
     renderer.dispose();
   }
 }
