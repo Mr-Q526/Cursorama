@@ -51,7 +51,7 @@ public static class CursoramaPointer
         long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         string buttonField = button == null ? "" : ",\"button\":\"" + button + "\"";
         Console.WriteLine("{\"x\":" + x.ToString("F6", NumberCulture) + ",\"y\":" + y.ToString("F6", NumberCulture) +
-            ",\"timestamp\":" + timestamp + ",\"kind\":\"" + kind + "\",\"normalized\":" +
+            ",\"screenX\":" + point.X + ",\"screenY\":" + point.Y + ",\"timestamp\":" + timestamp + ",\"kind\":\"" + kind + "\",\"normalized\":" +
             normalized.ToString().ToLowerInvariant() + ",\"inside\":" + inside.ToString().ToLowerInvariant() + buttonField + "}");
     }
 

@@ -4,19 +4,19 @@ import { screen } from 'electron';
 import type { NativePointer } from '../shared';
 import { desktopCatalog } from './catalog';
 
-interface RawPointer { x: number; y: number; timestamp: number; kind: 'move' | 'click'; button?: 'left' | 'right'; normalized: boolean; inside: boolean; }
+interface RawPointer { x: number; y: number; screenX: number; screenY: number; timestamp: number; kind: 'move' | 'click'; button?: 'left' | 'right'; normalized: boolean; inside: boolean; }
 const POINTER_START_TIMEOUT = 12_000;
 
 function isRawPointer(value: unknown): value is RawPointer {
   if (typeof value !== 'object' || value === null) return false;
   const event = value as Record<string, unknown>;
-  return typeof event.x === 'number' && typeof event.y === 'number' && typeof event.timestamp === 'number' && (event.kind === 'move' || event.kind === 'click');
+  return typeof event.x === 'number' && typeof event.y === 'number' && typeof event.screenX === 'number' && typeof event.screenY === 'number' && typeof event.timestamp === 'number' && (event.kind === 'move' || event.kind === 'click');
 }
 
 export class PointerTracker {
   private process: ChildProcessWithoutNullStreams | null = null;
 
-  async start(scriptPath: string, sourceId: string, displayId: string, callback: (sample: NativePointer) => void): Promise<void> {
+  async start(scriptPath: string, sourceId: string, displayId: string, callback: (sample: NativePointer) => void, ignorePoint?: (position: Electron.Point) => boolean): Promise<void> {
     this.stop();
     if (process.platform !== 'win32') throw new Error(desktopCatalog.unsupportedPlatform);
     const handle = sourceId.startsWith('window:') ? sourceId.split(':')[1] : '0';
@@ -37,6 +37,8 @@ export class PointerTracker {
         let event: unknown;
         try { event = JSON.parse(line) as unknown; } catch (error) { console.warn('POINTER_PARSE_FAILED', error); return; }
         if (!isRawPointer(event)) return;
+        const screenPoint = screen.screenToDipPoint({ x: Math.round(event.screenX), y: Math.round(event.screenY) });
+        if (ignorePoint?.(screenPoint)) return;
         let x = event.x; let y = event.y; let inside = event.inside;
         if (!event.normalized) {
           const position = screen.screenToDipPoint({ x: Math.round(x), y: Math.round(y) });

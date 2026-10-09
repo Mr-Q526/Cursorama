@@ -3,6 +3,7 @@ import type { Project } from '../shared';
 import { createDemoProject, DEMO, drawDemo, loadVideo, prepareRecording, renderExport, startRecording, VideoRenderer } from '../src/engine';
 
 export { prepareRecordingUI, cancelCountdownUI, startCountdownUI } from './recording-ui-qa';
+export { runFullscreenControlsQA, runRoundedFrameQA } from './preview-ui-qa';
 
 export async function runExportQualityQA() {
   const demo = createDemoProject();
@@ -50,10 +51,18 @@ export async function runRendererQA(sourceId: string) {
   const result = await renderExport(demo, { resolution: '720p', format: 'mp4', fps: 30, quality: 'high' }, () => undefined, new AbortController().signal);
   const prepared = await prepareRecording({ sourceId, microphone: false, systemAudio: false, fps: 30 });
   const active = await startRecording(prepared, 0, () => undefined, () => undefined, new AbortController().signal);
-  await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+  await new Promise<void>((resolve) => setTimeout(resolve, 800));
+  active.pause();
+  const pausedAt = active.elapsed;
+  await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+  if (!active.paused || Math.abs(active.elapsed - pausedAt) > 0.05) throw new Error('QA_PAUSE_CLOCK_CONTINUED');
+  active.resume();
+  await new Promise<void>((resolve) => setTimeout(resolve, 800));
   const recorded = await active.stop();
   if (!recorded.videoBlob || recorded.videoBlob.size < 1000 || recorded.duration < 1.4 || recorded.duration > 2.2) throw new Error('QA_RECORDING_FAILED');
+  await window.desktop?.exportVideo({ bytes: await recorded.videoBlob.arrayBuffer(), mimeType: recorded.videoBlob.type, name: '暂停继续录制验证', format: 'webm', quality: 'standard', duration: recorded.duration, fps: 30 });
   const recordedVideo = await loadVideo(recorded.videoUrl ?? '');
+  if (!Number.isFinite(recordedVideo.duration) || Math.abs(recordedVideo.duration - recorded.duration) > 1 / 30) throw new Error('QA_RECORDING_DURATION_METADATA_MISSING');
   if (recordedVideo.videoWidth !== recorded.width || recordedVideo.videoHeight !== recorded.height) throw new Error(`QA_CAPTURE_SIZE_CHANGED: metadata ${recorded.width}×${recorded.height}, video ${recordedVideo.videoWidth}×${recordedVideo.videoHeight}`);
   renderer.render(recorded, 0, recordedVideo);
   const pointerFrame: Project = { ...recorded, samples: [{ time: 0, x: 0.4, y: 0.4, kind: 'move' }], clips: [], cursorEmbedded: true, settings: { ...DEFAULT_SETTINGS, mode: 'overview', autoZoom: false, followCursor: false, clickEffect: false, spotlight: false, cursor: 'arrow' } };
@@ -80,7 +89,7 @@ export async function runRendererQA(sourceId: string) {
   const fourK = await renderExport({ ...demo, name: '4K清晰度验证', trimStart: 0, trimEnd: 1 }, { resolution: '2160p', format: 'mp4', fps: 30, quality: 'high' }, () => undefined, new AbortController().signal);
   URL.revokeObjectURL(recorded.videoUrl ?? '');
   recordedVideo.pause(); recordedVideo.removeAttribute('src'); recordedVideo.load(); renderer.dispose();
-  return { supports3D, camera, effectPath: result.path, recordingDuration: recorded.duration, recordingBytes: recorded.videoBlob.size, recordingWidth: recorded.width, recordingHeight: recorded.height, recordingCursorEmbedded: recorded.cursorEmbedded, duplicateCursorSuppressed: true, fourKPath: fourK.path, projectBytes: restored.bytes.byteLength, audioExportPassed: true, cancellationPassed, overview, zoomed };
+  return { supports3D, camera, effectPath: result.path, recordingDuration: recorded.duration, recordingBytes: recorded.videoBlob.size, recordingSource: Array.from(new Uint8Array(await recorded.videoBlob.arrayBuffer())), recordingWidth: recorded.width, recordingHeight: recorded.height, recordingCursorEmbedded: recorded.cursorEmbedded, duplicateCursorSuppressed: true, fourKPath: fourK.path, projectBytes: restored.bytes.byteLength, audioExportPassed: true, cancellationPassed, overview, zoomed };
 }
 
 export { runLibraryUIQA, restoreLibraryUIQA } from './library-ui-qa';

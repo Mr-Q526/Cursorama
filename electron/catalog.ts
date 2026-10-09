@@ -10,4 +10,6 @@ export const desktopCatalog = {
   unsavedRecordingTitle: '录制仍在进行', unsavedRecordingBody: '先结束录制，再关闭应用。',
   unsavedRecordingButton: '继续录制',
   chooseProjectDirectory: '选择工程保存目录', chooseExportDirectory: '选择视频导出目录',
+  recordingDock: 'Cursorama 录制控制', teleprompter: 'Cursorama 提词器',
+  trayPauseToggle: '暂停／继续录制',
 } as const;

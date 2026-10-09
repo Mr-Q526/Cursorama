@@ -1,22 +1,26 @@
-import { useEffect, useRef } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowCounterClockwiseIcon, ArrowsOutSimpleIcon, CircleIcon, CursorClickIcon, PauseIcon, PlayIcon, SpeakerHighIcon, SpeakerSlashIcon } from '@phosphor-icons/react';
+import { useEffect, useRef, useState } from 'react';
+import { CircleIcon } from '@phosphor-icons/react';
 import type { Project } from '../../shared';
-import { cameraAt, previewDimensions, previewToSource, VideoRenderer, wallpaperRevision } from '../engine';
+import { previewDimensions, VideoRenderer, wallpaperRevision } from '../engine';
 import type { PlaybackController } from '../hooks';
-import { formatPreciseTime, t } from '../i18n';
-import { IconButton, Segmented } from './Controls';
+import { t } from '../i18n';
+import { Segmented } from './Controls';
+import { PlaybackControls } from './PlaybackControls';
 
 export interface PreviewProps {
   project: Project; playback: PlaybackController; original: boolean;
-  onOriginal: (value: boolean) => void; onFocus: (x: number, y: number) => void;
+  onOriginal: (value: boolean) => void;
 }
 
 const PREVIEW_INSET = { horizontal: 44, vertical: 36 } as const;
+const CONTROLS_HIDE_DELAY = 2400;
 
-export function Preview({ project, playback, original, onOriginal, onFocus }: PreviewProps) {
+export function Preview({ project, playback, original, onOriginal }: PreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef({ project, original });
   latest.current = { project, original };
   useEffect(() => {
@@ -66,20 +70,25 @@ export function Preview({ project, playback, original, onOriginal, onFocus }: Pr
     window.addEventListener('resize', updateSize);
     return () => { observer.disconnect(); document.removeEventListener('fullscreenchange', updateSize); window.removeEventListener('resize', updateSize); };
   }, [project.settings.aspect]);
-
-  const handleFocus = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
-    if (original || document.fullscreenElement) return;
-    playback.pause();
-    const canvas = event.currentTarget; const bounds = canvas.getBoundingClientRect();
-    const camera = cameraAt(playback.timeRef.current, project.samples, project.clips, project.settings);
-    const point = previewToSource({ x: event.clientX - bounds.left, y: event.clientY - bounds.top }, { width: bounds.width, height: bounds.height }, { width: project.width, height: project.height }, camera, project.settings);
-    if (point) onFocus(point.x, point.y);
+  const showControls = (): void => {
+    setControlsVisible(true);
+    if (hideTimeout.current) clearTimeout(hideTimeout.current);
+    hideTimeout.current = setTimeout(() => setControlsVisible(false), CONTROLS_HIDE_DELAY);
+  };
+  useEffect(() => {
+    const changed = (): void => { setFullscreen(document.fullscreenElement === stageRef.current); showControls(); };
+    document.addEventListener('fullscreenchange', changed);
+    return () => { document.removeEventListener('fullscreenchange', changed); if (hideTimeout.current) clearTimeout(hideTimeout.current); };
+  }, []);
+  const toggleFullscreen = async (): Promise<void> => {
+    try { if (document.fullscreenElement) await document.exitFullscreen(); else await stageRef.current?.requestFullscreen(); }
+    catch (error) { console.error('PREVIEW_FULLSCREEN_FAILED', error); }
   };
 
   return <section className="preview-panel" aria-label={t.editor.preview}>
     <div className="preview-toolbar"><Segmented label={t.editor.preview} value={original ? 'original' : 'styled'} onChange={(value) => onOriginal(value === 'original')} options={[{ value: 'styled', label: t.editor.styled }, { value: 'original', label: t.editor.original }]} /><div className="preview-meta"><CircleIcon size={9} weight="fill" /><span>{project.width} × {project.height}</span><span className="meta-separator" />{project.sourceType === 'demo' ? t.editor.demoBadge : t.editor.localOnly}</div></div>
     {project.sourceType === 'demo' && <p className="demo-hint">{t.editor.demoHint}</p>}
-    <div className="preview-stage" ref={stageRef}><canvas aria-label={t.editor.focusAt} ref={canvasRef} onPointerDown={handleFocus} /><div className="stage-corners" aria-hidden="true" /><button type="button" className="soft-button fullscreen-exit" onClick={() => void document.exitFullscreen()}>{t.editor.exitFullscreen}</button></div>
-    <div className="playback-bar"><div className="preview-hint"><CursorClickIcon size={15} /><span>{t.editor.focusAt}</span></div><div className="playback-center"><IconButton icon={ArrowCounterClockwiseIcon} label={t.editor.restart} onClick={() => playback.seek(project.trimStart)} size={17} /><IconButton icon={playback.playing ? PauseIcon : PlayIcon} label={playback.playing ? t.editor.pause : t.editor.play} onClick={() => void playback.toggle()} className="play-button" size={18} /><span className="time-display">{formatPreciseTime(playback.time)}<span> / {formatPreciseTime(project.duration)}</span></span></div><div className="playback-right"><IconButton icon={playback.muted ? SpeakerSlashIcon : SpeakerHighIcon} label={playback.muted ? t.editor.unmute : t.editor.mute} onClick={playback.toggleMuted} disabled={!project.hasAudio} size={18} /><IconButton icon={ArrowsOutSimpleIcon} label={t.editor.fullscreen} onClick={() => void stageRef.current?.requestFullscreen()} size={18} /></div></div>
+    <div className="preview-stage" ref={stageRef} data-controls-visible={controlsVisible || !playback.playing} onPointerMove={showControls} onFocusCapture={showControls}><canvas aria-label={t.editor.preview} ref={canvasRef} onDoubleClick={() => void toggleFullscreen()} /><div className="stage-corners" aria-hidden="true" />{fullscreen && <PlaybackControls project={project} playback={playback} fullscreen onFullscreen={() => void toggleFullscreen()} className="fullscreen-playback" />}</div>
+    {!fullscreen && <PlaybackControls project={project} playback={playback} fullscreen={false} onFullscreen={() => void toggleFullscreen()} className="playback-bar" />}
   </section>;
 }

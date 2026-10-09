@@ -8,6 +8,7 @@ import { BackgroundRenderer } from './backgrounds';
 
 const RENDER = {
   cursorReferenceWidth: 1600, clickRadius: 52, spotlightRadius: 145,
+  radiusReferenceWidth: 1280,
   shadowScale: 0.55, verticalTiltScale: 0.7,
 } as const;
 const VERTEX_SHADER = `
@@ -39,7 +40,8 @@ const FRAGMENT_SHADER = `
     float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - u_radius;
     float alpha = 1.0 - smoothstep(-1.0, 1.0, d);
     vec4 color = texture2D(u_texture, vec2(v_uv.x, 1.0 - v_uv.y));
-    gl_FragColor = vec4(color.rgb, color.a * alpha);
+    float coverage = color.a * alpha;
+    gl_FragColor = vec4(color.rgb * coverage, coverage);
   }
 `;
 
@@ -132,7 +134,7 @@ export class VideoRenderer {
     } else {
       const x = (width - frameWidth) / 2;
       const y = (height - frameHeight) / 2;
-      this.output.beginPath(); this.output.roundRect(x, y, frameWidth, frameHeight, settings.radius); this.output.fillStyle = '#ffffff'; this.output.fill();
+      this.output.beginPath(); this.output.roundRect(x, y, frameWidth, frameHeight, settings.radius * width / RENDER.radiusReferenceWidth); this.output.fillStyle = '#ffffff'; this.output.fill();
       this.output.shadowBlur = 0; this.output.shadowOffsetY = 0;
       this.output.clip(); this.output.drawImage(this.sourceCanvas, x, y, frameWidth, frameHeight);
     }
@@ -157,7 +159,7 @@ export class VideoRenderer {
     gl.uniform1f(gl.getUniformLocation(program, 'u_aspect'), width / height);
     gl.uniform2f(gl.getUniformLocation(program, 'u_rotation'), camera.rotateX * MOTION.degreesToRadians, camera.rotateY * MOTION.degreesToRadians);
     gl.uniform2f(gl.getUniformLocation(program, 'u_pixels'), frameWidth, frameHeight);
-    gl.uniform1f(gl.getUniformLocation(program, 'u_radius'), settings.radius * width / 1280);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_radius'), settings.radius * width / RENDER.radiusReferenceWidth);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 

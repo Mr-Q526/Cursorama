@@ -1,5 +1,6 @@
 import type { UpdateState } from './updates';
 import type { DesktopWindowState } from './window';
+import type { RecordingCommand, RecordingOverlayState, RecordingProgress } from './recording';
 
 export type EffectMode = 'focus' | 'cinematic' | 'orbit' | 'overview';
 export type NeutralBackgroundId = 'silver' | 'smoke' | 'graphite' | 'charcoal' | 'ink' | 'paper';
@@ -181,6 +182,13 @@ export interface DesktopBridge {
   startPointer(sourceId: string): Promise<void>;
   stopPointer(): Promise<void>;
   recordingState(active: boolean): Promise<void>;
+  syncRecordingProgress(progress: RecordingProgress): Promise<void>;
+  getRecordingOverlay(): Promise<RecordingOverlayState>;
+  requestRecordingCommand(command: RecordingCommand): Promise<void>;
+  onRecordingCommand(callback: (command: RecordingCommand) => void): () => void;
+  onRecordingOverlay(callback: (state: RecordingOverlayState) => void): () => void;
+  configurePrompter(script: string, enabled: boolean): Promise<void>;
+  togglePrompter(): Promise<void>;
   onPointer(callback: (sample: NativePointer) => void): () => void;
   onStopRecording(callback: () => void): () => void;
   exportVideo(request: ExportRequest): Promise<ExportResult>;

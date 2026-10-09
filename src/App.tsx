@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApertureIcon, ArrowLeftIcon, CheckIcon, CircleIcon, DownloadSimpleIcon, FloppyDiskIcon, MonitorPlayIcon, RecordIcon, SparkleIcon, StopIcon, XIcon } from '@phosphor-icons/react';
+import { ApertureIcon, ArrowLeftIcon, CheckIcon, CircleIcon, DownloadSimpleIcon, FloppyDiskIcon, MonitorPlayIcon, RecordIcon, SparkleIcon, XIcon } from '@phosphor-icons/react';
 import type { ChangeEvent } from 'react';
-import type { EditorTab, EffectMode, ExportResult, LibraryProject, LibrarySnapshot, LibraryVideo, MotionClip, Project, ProjectData, StorageSettings, StoredProject, VisualSettings } from '../shared';
+import type { EditorTab, EffectMode, ExportResult, LibraryProject, LibrarySnapshot, LibraryVideo, MotionClip, Project, ProjectData, RecordingCommand, StorageSettings, StoredProject, VisualSettings } from '../shared';
 import { AUTOSAVE_DELAY, DEFAULT_SETTINGS, PRESETS, PROJECT_EXTENSION, projectBytes, readProjectBytes, TIME } from '../shared';
 import { createDemoProject, downloadBlob, generateClips, loadVideo, startRecording } from './engine';
 import type { PreparedRecording, RecordingSession } from './engine';
-import { useAppPage, usePlayback, useTheme, useUpdates } from './hooks';
-import { EmptyWorkspace, ExportDialog, ExportPreview, IconButton, Inspector, LibraryPage, LibrarySidebar, Modal, Preview, RecordDialog, SettingsDialog, Timeline, UpdateNotice, WindowControls } from './components';
+import { useAppPage, usePlayback, useTheme, useUpdates, type PrompterDraft } from './hooks';
+import { EmptyWorkspace, ExportDialog, ExportPreview, IconButton, Inspector, LibraryPage, LibrarySidebar, Modal, Preview, RecordDialog, RecordingDock, SettingsDialog, Teleprompter, Timeline, UpdateNotice, WindowControls } from './components';
 import { configureLibrary, hasLocalLibrary, listLibrary, openLibraryProject, openLibraryVideo, revealLibrary, saveLibraryProject } from './library';
 import type { LibraryVideoSource } from './library';
 import { formatTime, t } from './i18n';
@@ -48,11 +48,14 @@ export function App() {
   const [toast, setToast] = useState('');
   const [recording, setRecording] = useState(false);
   const [recordingElapsed, setRecordingElapsed] = useState(0);
+  const [recordingPaused, setRecordingPaused] = useState(false);
+  const [prompter, setPrompter] = useState<PrompterDraft>({ script: '', enabled: false });
   const [processing, setProcessing] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const recordingRef = useRef<RecordingSession | null>(null);
   const countdownAbort = useRef<AbortController | null>(null);
   const stopRef = useRef<() => Promise<void>>(async () => undefined);
+  const recordingCommandRef = useRef<(command: RecordingCommand) => void>(() => undefined);
   const videoInput = useRef<HTMLInputElement>(null);
   const projectInput = useRef<HTMLInputElement>(null);
   const previousUrl = useRef<string | undefined>(undefined);
@@ -133,6 +136,11 @@ export function App() {
     window.addEventListener('keydown', keydown); return () => window.removeEventListener('keydown', keydown);
   }, [page, project, videoSelection, dialog, busy, playback.toggle, playback.seek, playback.timeRef]);
   useEffect(() => window.desktop?.onStopRecording(() => void stopRef.current()), []);
+  useEffect(() => window.desktop?.onRecordingCommand((command) => recordingCommandRef.current(command)), []);
+  useEffect(() => {
+    document.documentElement.dataset.recording = String(recording);
+    return () => { delete document.documentElement.dataset.recording; };
+  }, [recording]);
   useEffect(() => {
     const cancelCountdown = (event: KeyboardEvent): void => { if (event.key === 'Escape') countdownAbort.current?.abort(); };
     window.addEventListener('keydown', cancelCountdown);
@@ -140,7 +148,7 @@ export function App() {
   }, []);
   useEffect(() => {
     if (!recording) return;
-    const interval = setInterval(() => { if (recordingRef.current) setRecordingElapsed((performance.now() - recordingRef.current.startedAt) / TIME.milliseconds); }, TIME.uiInterval);
+    const interval = setInterval(() => { if (recordingRef.current) { setRecordingElapsed(recordingRef.current.elapsed); setRecordingPaused(recordingRef.current.paused); } }, TIME.uiInterval);
     return () => clearInterval(interval);
   }, [recording]);
 
@@ -156,10 +164,6 @@ export function App() {
     const clip: MotionClip = { id, start, end: Math.min(project.duration, start + 3), x, y, zoom: project.settings.zoom, mode: project.settings.mode, enabled: true, manual: true };
     updateProject((current) => ({ ...current, clips: [...current.clips, clip].sort((first, second) => first.start - second.start) }));
     setSelectedId(id); setTab('motion'); playback.seek(start + Math.min(0.7, (clip.end - start) / 2));
-  };
-  const focusAt = (x: number, y: number): void => {
-    const selected = project?.clips.find((clip) => clip.id === selectedId);
-    if (selected) clipChanged(selected.id, { x, y, manual: true }); else addShot(x, y);
   };
   const replaceProject = (next: Project | null, id?: string, saved = false): void => {
     playback.pause(); currentRef.current = { project: next, projectId: id, key: currentRef.current.key + 1 };
@@ -261,7 +265,7 @@ export function App() {
   };
   const stopRecording = async (): Promise<void> => {
     const active = recordingRef.current; if (!active) return;
-    recordingRef.current = null; setProcessing(true); setRecording(false);
+    recordingRef.current = null; setProcessing(true); setRecording(false); setRecordingPaused(false);
     try {
       const next = await active.stop(); replaceProject(next);
       if (hasLocalLibrary) {
@@ -272,12 +276,22 @@ export function App() {
     finally { setProcessing(false); }
   };
   stopRef.current = stopRecording;
-  const beginRecording = async (prepared: PreparedRecording, seconds: number): Promise<void> => {
+  const recordingCommand = (command: RecordingCommand): void => {
+    const active = recordingRef.current;
+    if (!active) return;
+    if (command === 'stop') { void stopRef.current(); return; }
+    try { if (command === 'pause') active.pause(); else active.resume(); setRecordingPaused(active.paused); setRecordingElapsed(active.elapsed); }
+    catch (error) { console.error('RECORDING_COMMAND_FAILED', error); notify(t.recorderControls.failed); }
+  };
+  recordingCommandRef.current = recordingCommand;
+  const beginRecording = async (prepared: PreparedRecording, seconds: number, draft: PrompterDraft): Promise<void> => {
     playback.pause(); await flushCurrent();
+    await window.desktop?.configurePrompter(draft.script, draft.enabled);
+    setPrompter(draft);
     const abort = new AbortController(); countdownAbort.current = abort;
     try {
       const active = await startRecording(prepared, seconds, setCountdown, () => void stopRef.current(), abort.signal);
-      recordingRef.current = active; setRecordingElapsed(0); setRecording(true); setDialog(null);
+      recordingRef.current = active; setRecordingElapsed(0); setRecordingPaused(false); setRecording(true); setDialog(null);
     } finally { countdownAbort.current = null; setCountdown(null); }
   };
   const record = (): void => { playback.pause(); navigate('workspace'); setVideoSelection(null); setDialog('record'); };
@@ -295,7 +309,7 @@ export function App() {
     <div className="app-main" data-page={page}>
       {page === 'library' ? <LibraryPage library={library} error={libraryError} loading={libraryLoading} disabled={busy} projectId={videoSelection?.projectId ?? projectId} videoId={videoSelection?.video.id} onProject={(item) => void openStored(item)} onVideo={(item, video) => void openStored(item, video)} onRefresh={() => void refreshLibrary()} onRecord={record} onImport={() => videoInput.current?.click()} /> : videoSelection ? <ExportPreview video={videoSelection.video} url={videoSelection.source.url} onBack={() => setVideoSelection(null)} onReveal={() => void reveal(videoSelection.projectId, videoSelection.video.id)} onError={() => notify(t.library.videoFailed)} /> : project ? <>
         <div className="project-bar" data-project-id={projectId}><div className="project-title"><span className="project-icon"><MonitorPlayIcon size={20} /></span><div><input aria-label={t.appearance.projectName} className="project-name" value={project.name} maxLength={120} onChange={(event) => { const name = event.currentTarget.value; updateProject((current) => ({ ...current, name })); }} /><div className="project-details"><span>{formatTime(project.duration)}</span><span>·</span><span>{project.width} × {project.height}</span><span>·</span><span>{project.sourceType === 'demo' ? copy.demoBadge : t.library.autoSave}</span></div></div></div><div className="project-tools"><span className="save-status">{dirty || saving ? <CircleIcon size={7} weight="fill" /> : <CheckIcon size={13} />}{saving ? t.library.saving : dirty ? copy.unsaved : t.library.saved}</span>{project.sourceType === 'demo' && <button type="button" className="text-button" data-action="close-demo" disabled={busy} onClick={() => void changeWorkspace(null)}>{t.library.closeDemo}</button>}<button className="text-button" type="button" onClick={() => void save()} disabled={busy}><FloppyDiskIcon size={17} />{copy.saveProject}</button></div></div>
-        <div className="editor-layout"><main className="editor-center"><Preview project={project} playback={playback} original={original} onOriginal={setOriginal} onFocus={focusAt} /><Timeline project={project} time={playback.time} selectedId={selectedId} onSeek={playback.seek} onSelect={(id) => { setSelectedId(id); setTab('motion'); }} onAdd={() => addShot()} onRegenerate={() => { updateProject((current) => ({ ...current, clips: [...generateClips(current.samples, current.duration, current.settings.mode, current.settings.zoom), ...current.clips.filter((clip) => clip.manual)].sort((first, second) => first.start - second.start) })); setSelectedId(undefined); notify(copy.regenerateSuccess); }} /></main><Inspector project={project} tab={tab} onTab={setTab} onSettings={settingsChanged} onPreset={presetChanged} selectedClip={project.clips.find((clip) => clip.id === selectedId)} onClip={clipChanged} onDeleteClip={(id) => { updateProject((current) => ({ ...current, clips: current.clips.filter((clip) => clip.id !== id) })); setSelectedId(undefined); }} onTrim={(trimStart, trimEnd) => updateProject((current) => ({ ...current, trimStart, trimEnd }))} /></div>
+        <div className="editor-layout"><main className="editor-center"><Preview project={project} playback={playback} original={original} onOriginal={setOriginal} /><Timeline project={project} time={playback.time} selectedId={selectedId} onSeek={playback.seek} onSelect={(id) => { setSelectedId(id); setTab('motion'); }} onAdd={() => addShot()} onRegenerate={() => { updateProject((current) => ({ ...current, clips: [...generateClips(current.samples, current.duration, current.settings.mode, current.settings.zoom), ...current.clips.filter((clip) => clip.manual)].sort((first, second) => first.start - second.start) })); setSelectedId(undefined); notify(copy.regenerateSuccess); }} /></main><Inspector project={project} tab={tab} onTab={setTab} onSettings={settingsChanged} onPreset={presetChanged} selectedClip={project.clips.find((clip) => clip.id === selectedId)} onClip={clipChanged} onDeleteClip={(id) => { updateProject((current) => ({ ...current, clips: current.clips.filter((clip) => clip.id !== id) })); setSelectedId(undefined); }} onTrim={(trimStart, trimEnd) => updateProject((current) => ({ ...current, trimStart, trimEnd }))} /></div>
       </> : <EmptyWorkspace onRecord={record} onImport={() => videoInput.current?.click()} onOpen={() => void open()} disabled={busy} />}
     </div>
     <input type="file" className="visually-hidden" ref={videoInput} accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onChange={(event) => void importVideo(event)} /><input type="file" className="visually-hidden" ref={projectInput} accept={`.${PROJECT_EXTENSION}`} onChange={(event) => void importProject(event)} />
@@ -304,7 +318,8 @@ export function App() {
     {!busy && !dialog && <UpdateNotice state={updates.state} onOpen={() => { playback.pause(); setDialog('settings'); void refreshLibrary(); }} />}
     {dialog === 'export' && project && <ExportDialog project={project} ensureSaved={ensureSaved} onComplete={() => void refreshLibrary()} onClose={() => setDialog(null)} />}
     {dialog === 'guide' && <Modal title={copy.guideTitle} onClose={() => setDialog(null)}><div className="guide-steps">{copy.guideSteps.map(([title, description], index) => <div key={title}><span>{index + 1}</span><div><h3>{title}</h3><p>{description}</p></div></div>)}</div><p className="guide-note"><SparkleIcon size={19} />{copy.guideNote}</p>{!window.desktop && <p className="field-hint">{copy.browserHint}</p>}</Modal>}
-    {recording && <div className="recording-overlay"><div className="recording-orbit"><RecordIcon size={33} weight="fill" /></div><h2>{t.recording.recording}</h2><strong className="recording-clock">{formatTime(recordingElapsed)}</strong><p>{t.recording.statusHint}</p><button className="primary-button" type="button" onClick={() => void stopRecording()}><StopIcon size={17} weight="fill" />{t.recording.stop}</button><small>{t.recording.shortcut}</small></div>}
+    {recording && !window.desktop && <div className="browser-recording-dock"><RecordingDock state={{ active: true, paused: recordingPaused, elapsed: recordingElapsed, pending: false, script: prompter.script, prompterVisible: prompter.enabled }} onCommand={recordingCommand} onPrompter={() => setPrompter((current) => ({ ...current, enabled: !current.enabled }))} /></div>}
+    {recording && !window.desktop && prompter.enabled && <div className="browser-teleprompter"><Teleprompter script={prompter.script} recordingPaused={recordingPaused} onClose={() => setPrompter((current) => ({ ...current, enabled: false }))} /></div>}
     {countdown !== null && <div className="countdown-overlay" role="status"><span>{t.recording.countdown}</span><strong>{countdown}</strong><button className="soft-button" type="button" onClick={() => countdownAbort.current?.abort()}>{t.recording.cancelCountdown}</button></div>}
     {(processing || loading) && <div className="processing-overlay"><ApertureIcon size={39} className="spin" /><p>{processing ? t.recording.processing : t.library.loading}</p></div>}
     {toast && <div className="toast" role="status"><CheckIcon size={16} /><span>{toast}</span><IconButton icon={XIcon} label={copy.close} onClick={() => setToast('')} size={15} /></div>}

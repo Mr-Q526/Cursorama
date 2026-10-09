@@ -27,6 +27,19 @@ export const bridge: DesktopBridge = {
   startPointer: (sourceId: string) => ipcRenderer.invoke(IPC.pointerStart, sourceId),
   stopPointer: () => ipcRenderer.invoke(IPC.pointerStop),
   recordingState: (active: boolean) => ipcRenderer.invoke(IPC.recording, active),
+  syncRecordingProgress: (progress) => ipcRenderer.invoke(IPC.recordingProgress, progress),
+  getRecordingOverlay: () => ipcRenderer.invoke(IPC.recordingOverlayGet),
+  requestRecordingCommand: (command) => ipcRenderer.invoke(IPC.recordingCommandRequest, command),
+  configurePrompter: (script, enabled) => ipcRenderer.invoke(IPC.prompterConfigure, script, enabled),
+  togglePrompter: () => ipcRenderer.invoke(IPC.prompterToggle),
+  onRecordingCommand: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, command: Parameters<typeof callback>[0]): void => callback(command);
+    ipcRenderer.on(IPC.recordingCommand, handler); return () => ipcRenderer.removeListener(IPC.recordingCommand, handler);
+  },
+  onRecordingOverlay: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: Parameters<typeof callback>[0]): void => callback(state);
+    ipcRenderer.on(IPC.recordingOverlayState, handler); return () => ipcRenderer.removeListener(IPC.recordingOverlayState, handler);
+  },
   onPointer: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, sample: NativePointer): void => callback(sample);
     ipcRenderer.on(IPC.pointer, handler); return () => ipcRenderer.removeListener(IPC.pointer, handler);

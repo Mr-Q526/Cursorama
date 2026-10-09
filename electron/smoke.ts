@@ -7,6 +7,7 @@ import { exportVideo } from './export';
 import { desktopCatalog } from './catalog';
 import type { LibraryUIReport } from '../tests/library-ui-qa';
 import type { NavigationUIReport } from '../tests/navigation-ui-qa';
+import type { PreviewUIReport, RoundedFrameReport } from '../tests/preview-ui-qa';
 
 interface CaptureReport {
   bytes: number[];
@@ -20,12 +21,32 @@ interface CaptureReport {
 
 const decodeFile = promisify(execFile);
 const DECODE = { width: 3840, height: 2160, fps: 30, frames: 30, duration: '00:00:01.00' } as const;
+const SCREENSHOT = { attempts: 3, retryDelay: 200 } as const;
+
+async function captureRestoredPage(window: BrowserWindow): Promise<Buffer> {
+  for (let attempt = 0; attempt < SCREENSHOT.attempts; attempt++) {
+    try { return (await window.webContents.capturePage()).toPNG(); }
+    catch (error) {
+      if (!(error instanceof Error) || error.message !== 'UnknownVizError' || attempt === SCREENSHOT.attempts - 1) throw error;
+      await new Promise<void>((resolve) => setTimeout(resolve, SCREENSHOT.retryDelay));
+    }
+  }
+  throw new Error('SMOKE_RESTORED_SCREENSHOT_UNAVAILABLE');
+}
 
 async function verifyFourK(root: string): Promise<typeof DECODE> {
   const { stderr } = await decodeFile(path.join(root, 'node_modules/ffmpeg-static/ffmpeg.exe'), ['-hide_banner', '-i', path.join(root, '.qa/4K清晰度验证.mp4'), '-f', 'null', 'NUL'], { windowsHide: true });
   const frames = Array.from(stderr.matchAll(/frame=\s*(\d+)/g)).at(-1)?.[1];
   if (!stderr.includes(`${DECODE.width}x${DECODE.height}`) || !stderr.includes(`${DECODE.fps} fps`) || !stderr.includes(`Duration: ${DECODE.duration}`) || Number(frames) !== DECODE.frames) throw new Error('SMOKE_4K_OUTPUT_INVALID');
   return DECODE;
+}
+
+async function verifyPausedRecording(root: string, duration: number): Promise<{ frames: number; duration: number }> {
+  const { stderr } = await decodeFile(path.join(root, 'node_modules/ffmpeg-static/ffmpeg.exe'), ['-hide_banner', '-i', path.join(root, '.qa/暂停继续录制验证.webm'), '-f', 'null', 'NUL'], { windowsHide: true });
+  const frames = Number(Array.from(stderr.matchAll(/frame=\s*(\d+)/g)).at(-1)?.[1]);
+  const decodedDuration = frames / DECODE.fps;
+  if (!stderr.includes(`${DECODE.fps} fps`) || Math.abs(decodedDuration - duration) > 1 / DECODE.fps) throw new Error(`SMOKE_PAUSED_VIDEO_DURATION_MISMATCH: ${decodedDuration}/${duration}`);
+  return { frames, duration: decodedDuration };
 }
 
 export async function runSmokeTest(window: BrowserWindow, root: string, setSource: (sourceId: string) => Promise<void>): Promise<void> {
@@ -73,6 +94,9 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
       return { active: Boolean(document.fullscreenElement), width: canvas.width, height: canvas.height, displayWidth: canvas.getBoundingClientRect().width, displayHeight: canvas.getBoundingClientRect().height };
     })()`) as { active: boolean; width: number; height: number; displayWidth: number; displayHeight: number };
     if (!fullscreen.active || fullscreen.width < 1920 || fullscreen.height < 1080) throw new Error('SMOKE_FULLSCREEN_RESOLUTION_LOW');
+    const fullscreenControls = await window.webContents.executeJavaScript(`cursoramaQA.runFullscreenControlsQA()`, true) as PreviewUIReport;
+    await writeFile(path.join(output, 'fullscreen-controls.png'), (await window.webContents.capturePage()).toPNG());
+    const roundedFrame = await window.webContents.executeJavaScript(`cursoramaQA.runRoundedFrameQA()`, true) as RoundedFrameReport;
     await window.webContents.executeJavaScript(`document.exitFullscreen()`);
     const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } });
     const ownWindow = sources.find((source) => source.name === desktopCatalog.appName);
@@ -120,8 +144,10 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     const wallpaperReport = await window.webContents.executeJavaScript(`cursoramaQA.runWallpaperQA()`, true) as { count: number; coverAndFilters: boolean; image: string };
     await writeFile(path.join(output, 'wallpaper-styles.png'), Buffer.from(wallpaperReport.image.split(',')[1], 'base64'));
     await writeFile(path.join(output, 'wallpapers-ui.png'), (await window.webContents.capturePage()).toPNG());
-    const rendererReport = await window.webContents.executeJavaScript(`cursoramaQA.runRendererQA(${JSON.stringify(ownWindow.id)})`, true) as { overview: string; zoomed: string; [key: string]: unknown };
-    const { overview, zoomed, ...rendererDetails } = rendererReport;
+    const rendererReport = await window.webContents.executeJavaScript(`cursoramaQA.runRendererQA(${JSON.stringify(ownWindow.id)})`, true) as { overview: string; zoomed: string; recordingSource: number[]; recordingDuration: number; [key: string]: unknown };
+    const { overview, zoomed, recordingSource, ...rendererDetails } = rendererReport;
+    await writeFile(path.join(output, 'paused-recording-source.webm'), Uint8Array.from(recordingSource));
+    const decodedPausedRecording = await verifyPausedRecording(root, rendererReport.recordingDuration);
     const decodedFourK = await verifyFourK(root);
     await writeFile(path.join(output, 'overview.png'), Buffer.from(overview.split(',')[1], 'base64'));
     await writeFile(path.join(output, 'cinematic.png'), Buffer.from(zoomed.split(',')[1], 'base64'));
@@ -131,9 +157,9 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     await window.webContents.executeJavaScript(`new Promise(resolve => setTimeout(resolve, 200))`);
     await window.webContents.executeJavaScript(await readFile(path.join(output, 'renderer-test.js'), 'utf8'));
     await window.webContents.executeJavaScript(`cursoramaQA.restoreLibraryUIQA(${JSON.stringify(libraryReport.projectId)})`, true);
-    await writeFile(path.join(output, 'library-restored.png'), (await window.webContents.capturePage()).toPNG());
+    await writeFile(path.join(output, 'library-restored.png'), await captureRestoredPage(window));
     const { bytes: _bytes, ...report } = result;
-    await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: true, ...report, bytes: raw.length, emptyWorkspace, navigation: { ...navigation, lightTheme: true, darkTheme: true }, library: { ...libraryReport, restoredAfterReload: true }, wallpapers: { count: wallpaperReport.count, coverAndFilters: wallpaperReport.coverAndFilters }, fullscreen, recordingFlow: { ...ready, ...cancelledCountdown, ...startedCountdown }, renderer: rendererDetails, decodedFourK, errors }, null, 2));
+    await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: true, ...report, bytes: raw.length, emptyWorkspace, navigation: { ...navigation, lightTheme: true, darkTheme: true }, library: { ...libraryReport, restoredAfterReload: true }, wallpapers: { count: wallpaperReport.count, coverAndFilters: wallpaperReport.coverAndFilters }, fullscreen, fullscreenControls, roundedFrame, recordingFlow: { ...ready, ...cancelledCountdown, ...startedCountdown }, renderer: rendererDetails, decodedFourK, decodedPausedRecording, errors }, null, 2));
     if (errors.length) throw new Error(errors.join('\n'));
     console.info('桌面端验证通过：界面、原生鼠标追踪、应用窗口录制、3D 自动运镜、带效果 MP4 导出、项目恢复。');
     app.exit(0);

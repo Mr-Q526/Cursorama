@@ -21,7 +21,7 @@ export async function encodeVideo(request: ExportRequest, binary: string, target
       ? ['-c:v', 'libx264', '-preset', 'fast', '-crf', QUALITY_CRF[request.quality], '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', AUDIO_BITRATE.mp4, '-movflags', '+faststart']
       : ['-c:v', 'libvpx-vp9', '-deadline', 'realtime', '-cpu-used', '4', '-crf', request.quality === 'high' ? '24' : '32', '-b:v', '0', '-c:a', 'libopus', '-b:a', AUDIO_BITRATE.webm];
     await new Promise<void>((resolve, reject) => {
-      const encoder = spawn(binary, ['-y', '-i', input, '-map', '0:v:0', '-map', '0:a?', '-vf', `tpad=stop_mode=clone:stop_duration=${request.duration}`, ...formatArgs, '-r', request.fps.toString(), '-t', request.duration.toString(), '-progress', 'pipe:1', output], { windowsHide: true });
+      const encoder = spawn(binary, ['-y', '-i', input, '-map', '0:v:0', '-map', '0:a?', '-vf', `fps=${request.fps},tpad=stop_mode=clone:stop_duration=${request.duration}`, ...formatArgs, '-r', request.fps.toString(), '-t', request.duration.toString(), '-progress', 'pipe:1', output], { windowsHide: true });
       let errorLog = '';
       encoder.stderr.on('data', (chunk: Buffer) => { errorLog = (errorLog + chunk.toString()).slice(-MAX_ERROR_LENGTH); });
       encoder.stdout.on('data', (chunk: Buffer) => {

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, session, shell, Tray, type IpcMainInvokeEvent } from 'electron';
-import { APP_PORT, IPC, UPDATE_CONFIG } from '../shared';
+import { APP_PORT, IPC, RECORDING_CONTROLS, UPDATE_CONFIG } from '../shared';
 import type { CaptureOptions, CaptureSource, ExportRequest, ProjectData, StorageSettings, StorageTarget } from '../shared';
 import { desktopCatalog } from './catalog';
 import { exportVideo, openProject } from './export';
@@ -12,6 +12,7 @@ import { legacyLibraryRoots } from '../storage/locations';
 import { PointerTracker } from './pointer';
 import { createUpdateDriver, UpdateService } from './updates';
 import { registerWindowControls } from './window';
+import { RecordingOverlays } from './recording-overlays';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const STOP_SHORTCUT = 'CommandOrControl+Shift+F9';
@@ -24,6 +25,7 @@ const tracker = new PointerTracker();
 let mainWindow: BrowserWindow | null = null;
 let selection: CaptureOptions | null = null;
 let recording = false;
+let overlays: RecordingOverlays | null = null;
 let tray: Tray | null = null;
 let updates: UpdateService | null = null;
 let activeOperations = 0;
@@ -57,8 +59,12 @@ async function withActivity<T>(operation: () => Promise<T>): Promise<T> {
   finally { activeOperations--; }
 }
 
-function setRecording(active: boolean): void {
+async function setRecording(active: boolean): Promise<void> {
   recording = active;
+  if (active) {
+    try { await overlays?.start(); }
+    catch (error) { recording = false; throw error; }
+  } else overlays?.stop();
   if (active && !tray) {
     const size = 32;
     const pixels = Buffer.alloc(size * size * 4);
@@ -74,13 +80,13 @@ function setRecording(active: boolean): void {
     tray = new Tray(icon);
     tray.setToolTip(desktopCatalog.trayRecording);
     tray.setContextMenu(Menu.buildFromTemplate([
+      { label: desktopCatalog.trayPauseToggle, click: () => overlays?.command(overlays.current.paused ? 'resume' : 'pause') },
       { label: desktopCatalog.trayStop, click: () => mainWindow?.webContents.send(IPC.recordingStop) },
       { label: desktopCatalog.trayShow, click: () => mainWindow?.show() },
     ]));
     tray.on('double-click', () => mainWindow?.show());
   }
   if (!active) { tray?.destroy(); tray = null; if (!isSmoke) mainWindow?.show(); }
-  if (active && !isSmoke) mainWindow?.minimize();
 }
 
 function registerIPC(): void {
@@ -102,10 +108,10 @@ function registerIPC(): void {
     const nativeRoot = app.isPackaged ? path.join(process.resourcesPath, 'native') : path.join(ROOT, 'native');
     await tracker.start(path.join(nativeRoot, 'pointer-tracker.ps1'), sourceId, sourceDisplays.get(sourceId) ?? '', (sample) => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(IPC.pointer, sample);
-    });
+    }, (position) => overlays?.contains(position) ?? false);
   });
   ipcMain.handle(IPC.pointerStop, () => tracker.stop());
-  ipcMain.handle(IPC.recording, (_event, active: boolean) => { if (typeof active !== 'boolean') throw new Error(desktopCatalog.invalidRequest); setRecording(active); });
+  ipcMain.handle(IPC.recording, (event, active: boolean) => { if (event.sender !== mainWindow?.webContents || typeof active !== 'boolean') throw new Error(desktopCatalog.invalidRequest); return setRecording(active); });
   ipcMain.handle(IPC.export, async (_event, request: ExportRequest) => withActivity(async () => {
     const result = isSmoke && !request.projectId
       ? await exportVideo(requireWindow(), request, path.join(ROOT, '.qa', `${request.name}.${request.format}`))
@@ -146,6 +152,8 @@ async function createWindow(): Promise<void> {
     webPreferences: { preload: path.join(ROOT, 'dist-electron/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false },
   });
   registerWindowControls(mainWindow);
+  overlays = new RecordingOverlays({ mainWindow, preload: path.join(ROOT, 'dist-electron/preload.cjs'), keepMainVisible: isSmoke });
+  mainWindow.webContents.on('render-process-gone', () => { recording = false; tracker.stop(); overlays?.stop(); tray?.destroy(); tray = null; });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, url) => { if (url !== mainWindow?.webContents.getURL()) event.preventDefault(); });
   mainWindow.on('close', (event) => {
@@ -154,7 +162,7 @@ async function createWindow(): Promise<void> {
       void dialog.showMessageBox(requireWindow(), { title: desktopCatalog.unsavedRecordingTitle, message: desktopCatalog.unsavedRecordingBody, buttons: [desktopCatalog.unsavedRecordingButton] });
     }
   });
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => { overlays?.dispose(); overlays = null; mainWindow = null; });
   const url = process.env.FRAMEFLOW_DEV_URL;
   if (url && url.startsWith(`http://127.0.0.1:${APP_PORT}`)) await mainWindow.loadURL(url);
   else await mainWindow.loadFile(path.join(ROOT, 'dist/index.html'));
@@ -186,6 +194,7 @@ app.whenReady().then(async () => {
   });
   registerIPC();
   globalShortcut.register(STOP_SHORTCUT, () => { if (recording) mainWindow?.webContents.send(IPC.recordingStop); });
+  globalShortcut.register(RECORDING_CONTROLS.pauseShortcut, () => { if (recording) overlays?.command(overlays.current.paused ? 'resume' : 'pause'); });
   await createWindow();
   await updates.start();
   if (isStartupCheck) {
@@ -217,6 +226,6 @@ app.whenReady().then(async () => {
 }).catch((error: unknown) => { console.error(error); app.exit(1); });
 
 app.on('window-all-closed', () => app.quit());
-app.on('before-quit', () => { updates?.dispose(); tracker.stop(); tray?.destroy(); globalShortcut.unregisterAll(); });
+app.on('before-quit', () => { updates?.dispose(); overlays?.dispose(); tracker.stop(); tray?.destroy(); globalShortcut.unregisterAll(); });
 
 export { sources };

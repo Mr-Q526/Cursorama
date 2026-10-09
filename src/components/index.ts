@@ -12,3 +12,8 @@ export * from './LibraryPage';
 export * from './SettingsDialog';
 export * from './UpdateSettings';
 export * from './WindowControls';
+export * from './PlaybackControls';
+export * from './PrompterSetup';
+export * from './RecordingDock';
+export * from './Teleprompter';
+export * from './RecordingSurfaceApp';

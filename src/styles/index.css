@@ -5,6 +5,8 @@
 @import './library.css';
 @import './backgrounds.css';
 @import './pages.css';
+@import './playback.css';
+@import './recording-controls.css';
 
 :root {
   font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;

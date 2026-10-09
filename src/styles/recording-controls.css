@@ -1,0 +1,37 @@
+.prompter-setup { margin: 17px 0 22px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-background); }
+.prompter-setup summary { display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-size: 12px; cursor: pointer; color: var(--text-secondary); }
+.prompter-setup[open] summary { border-bottom: 1px solid var(--line); }
+.prompter-setup fieldset { border: 0; margin: 0; padding: 10px 14px 14px; min-width: 0; }
+.prompter-script-label { display: flex; flex-direction: column; gap: 9px; font-size: 11px; margin-top: 13px; }
+.prompter-script-label textarea { width: 100%; min-height: 125px; max-height: 250px; resize: vertical; padding: 12px; font: inherit; line-height: 1.9; color: var(--text-primary); background: var(--shell-background); border: 1px solid var(--line); border-radius: 7px; }
+body.recording-surface-body { min-width: 0; margin: 0; overflow: hidden; }
+.recording-surface-body #root, .recording-surface { width: 100%; height: 100dvh; }
+.recording-dock { display: flex; align-items: center; gap: 10px; height: 72px; width: 100%; padding: 10px 14px 10px 10px; background: var(--panel-background); color: var(--text-primary); border: 1px solid var(--line); border-radius: 12px; }
+.dock-drag, .prompter-drag { -webkit-app-region: drag; app-region: drag; user-select: none; }
+.dock-drag { display: grid; place-items: center; align-self: stretch; color: var(--text-tertiary); padding: 0 3px; }
+.dock-time { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 90px; }
+.dock-time > svg { animation: dock-recording 1.8s infinite; }
+.is-paused .dock-time > svg { animation: none; opacity: .4; }
+.dock-time > div { display: flex; flex-direction: column; gap: 5px; }
+.recording-dock .recording-clock { font-family: 'Cascadia Code', Consolas, monospace; font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; margin: 0; letter-spacing: 0; }
+.dock-time span { font-size: 10px; color: var(--text-tertiary); }
+.dock-actions { display: flex; align-items: center; gap: 5px; -webkit-app-region: no-drag; app-region: no-drag; }
+.dock-actions .icon-button { width: 34px; height: 34px; }
+.dock-actions .dock-stop { background: var(--primary-button); color: var(--primary-button-text); }
+.dock-actions .dock-stop:hover { background: var(--primary-button-hover); color: var(--primary-button-text); }
+.teleprompter { display: flex; flex-direction: column; height: 100%; overflow: hidden; background: var(--panel-background); color: var(--text-primary); border: 1px solid var(--line); border-radius: 10px; }
+.prompter-heading { display: flex; align-items: center; justify-content: space-between; height: 44px; padding: 0 10px 0 13px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.prompter-drag { display: flex; align-items: center; gap: 8px; align-self: stretch; flex: 1; color: var(--text-secondary); font-size: 12px; }
+.prompter-heading .icon-button { -webkit-app-region: no-drag; app-region: no-drag; }
+.prompter-viewport { flex: 1; min-height: 0; overflow-y: auto; scroll-behavior: auto; background: var(--shell-background); }
+.prompter-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; padding: 30px 35px 60%; }
+.prompter-viewport.mirrored .prompter-text { transform: scaleX(-1); }
+.prompter-toolbar { display: flex; align-items: center; gap: 15px; flex-shrink: 0; border-top: 1px solid var(--line); padding: 10px 12px; background: var(--panel-background); }
+.prompter-playback { display: flex; gap: 2px; }
+.prompter-toolbar label { display: flex; flex-direction: column; flex: 1; min-width: 55px; font-size: 10px; color: var(--text-secondary); }
+.prompter-toolbar input { margin: 9px 0 0; }
+.prompter-finished { font-size: 10px; color: var(--text-tertiary); text-align: center; margin: 0; padding-bottom: 8px; }
+.recording-control-error { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10px; background: var(--panel-background); margin: 0; text-align: center; }
+.browser-recording-dock { position: fixed; width: 336px; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 70; box-shadow: 0 10px 35px #00000030; border-radius: 12px; }
+.browser-teleprompter { position: fixed; width: 540px; height: 400px; top: 85px; left: 50%; transform: translateX(-50%); z-index: 65; box-shadow: 0 10px 35px #00000030; }
+@keyframes dock-recording { 50% { opacity: .45; } }

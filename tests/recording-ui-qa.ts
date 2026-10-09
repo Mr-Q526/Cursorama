@@ -2,6 +2,7 @@ import { CAPTURE_TIMING, TIME } from '../shared';
 import { t } from '../src/i18n';
 
 const UI_QA = { pollInterval: 50, timeout: 18_000, recordDuration: 600, countdownTolerance: 80 } as const;
+const PROMPTER_SCRIPT = '向观众介绍操作步骤，说明重点，再开始演示。';
 type QueryRoot = Document | HTMLElement;
 
 function button(label: string, root: QueryRoot = document): HTMLButtonElement {
@@ -72,20 +73,32 @@ export async function cancelCountdownUI() {
 }
 
 export async function startCountdownUI() {
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+  const setup = dialog?.querySelector<HTMLDetailsElement>('.prompter-setup');
+  const script = setup?.querySelector<HTMLTextAreaElement>('textarea');
+  const enable = setup?.querySelector<HTMLButtonElement>('[role="switch"]');
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+  if (!setup || !script || !enable || !setter) throw new Error('QA_PROMPTER_SETUP_MISSING');
+  setup.open = true;
+  setter.call(script, PROMPTER_SCRIPT); script.dispatchEvent(new Event('input', { bubbles: true }));
+  if (enable.getAttribute('aria-checked') !== 'true') enable.click();
+  await waitUntil(() => script.value === PROMPTER_SCRIPT && enable.getAttribute('aria-checked') === 'true' ? true : undefined);
   const instrument = instrumentRecording();
   const clickedAt = performance.now();
   try {
     button(t.recording.start, document.querySelector<HTMLElement>('[role="dialog"]') ?? document).click();
     await waitUntil(() => document.querySelector('.countdown-overlay strong')?.textContent === String(CAPTURE_TIMING.defaultCountdown) ? true : undefined);
     if (instrument.starts.length) throw new Error('QA_COUNTDOWN_RECORDED');
-    await waitUntil(() => document.querySelector('.recording-overlay') ? true : undefined);
+    await waitUntil(() => document.documentElement.dataset.recording === 'true' ? true : undefined);
     const delay = (instrument.starts[0] ?? 0) - clickedAt;
     if (instrument.starts.length !== 1 || delay < CAPTURE_TIMING.defaultCountdown * TIME.milliseconds - UI_QA.countdownTolerance || instrument.selections()) throw new Error('QA_RECORDING_START_SEQUENCE_FAILED');
     await new Promise<void>((resolve) => setTimeout(resolve, UI_QA.recordDuration));
-    const displayedTime = document.querySelector('.recording-clock')?.textContent;
-    button(t.recording.stop).click();
-    await waitUntil(() => !document.querySelector('.processing-overlay') && !document.querySelector('.recording-overlay') ? true : undefined);
-    if (document.querySelector<HTMLInputElement>('.project-name')?.value !== t.editor.recordingName || displayedTime !== '00:00') throw new Error('QA_COUNTDOWN_INCLUDED_IN_RECORDING');
-    return { countdownMilliseconds: Math.round(delay), sourceReselections: instrument.selections(), countdownExcludedFromRecording: true };
+    const state = await window.desktop?.getRecordingOverlay();
+    if (!state?.prompterVisible || state.script !== PROMPTER_SCRIPT) throw new Error('QA_PROMPTER_SETUP_NOT_APPLIED');
+    const displayedTime = state ? Math.floor(state.elapsed) : 0;
+    await window.desktop?.requestRecordingCommand('stop');
+    await waitUntil(() => !document.querySelector('.processing-overlay') && document.documentElement.dataset.recording !== 'true' ? true : undefined);
+    if (document.querySelector<HTMLInputElement>('.project-name')?.value !== t.editor.recordingName || displayedTime !== 0) throw new Error('QA_COUNTDOWN_INCLUDED_IN_RECORDING');
+    return { countdownMilliseconds: Math.round(delay), sourceReselections: instrument.selections(), countdownExcludedFromRecording: true, prompterConfigured: true };
   } finally { instrument.restore(); }
 }

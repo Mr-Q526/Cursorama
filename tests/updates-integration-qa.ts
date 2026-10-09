@@ -10,7 +10,7 @@ import { ElectronHttpExecutor } from 'electron-updater/out/electronHttpExecutor'
 import type { InstallOptions } from 'electron-updater/out/BaseUpdater';
 import { configureUpdateDriver, UpdateService } from '../electron/updates';
 import { registerWindowControls } from '../electron/window';
-import { IPC, UPDATE_CONFIG } from '../shared';
+import { APP_VERSION, IPC, UPDATE_CONFIG } from '../shared';
 import { LocalLibrary } from '../storage/library';
 import { runWindowUIQA, type WindowUIReport } from './window-ui-qa';
 
@@ -20,7 +20,7 @@ export interface UpdateIntegrationReport {
   windowControls: WindowUIReport;
 }
 
-const QA = { initialVersion: '0.1.0', filename: 'Cursorama-Setup-0.1.1-x64.exe', latest: '0.1.1', loopback: '127.0.0.1', timeout: 120_000 } as const;
+const QA = { initialVersion: '0.1.0', filename: `Cursorama-Setup-${APP_VERSION}-x64.exe`, latest: APP_VERSION, loopback: '127.0.0.1', timeout: 120_000 } as const;
 const root = process.cwd();
 const output = path.join(root, '.qa');
 app.setPath('userData', path.join(output, 'updates-test-profile'));

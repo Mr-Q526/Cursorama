@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { CaptureOptions, DesktopBridge, NativePointer } from '../shared';
+import type { CaptureOptions, DesktopBridge, NativePointer, RecordingProgress } from '../shared';
 import { createDemoProject, prepareRecording, startRecording } from '../src/engine';
 
 const CAPTURE: CaptureOptions = { sourceId: '', microphone: false, systemAudio: false, fps: 30 };
@@ -29,6 +29,8 @@ class CaptureRecorder {
   onstop?: () => void;
   ondataavailable?: (event: { data: Blob }) => void;
   start = () => { this.state = 'recording'; };
+  pause = () => { this.state = 'paused'; };
+  resume = () => { this.state = 'recording'; };
   stop = () => {
     this.state = 'inactive';
     this.ondataavailable?.({ data: new Blob(['录制验证']) });
@@ -114,6 +116,48 @@ describe('录制清晰度与光标回归', () => {
 });
 
 describe('选择来源、倒计时与取消', () => {
+  it('暂停会停止计时与录制，继续后排除暂停时长并对齐鼠标轨迹', async () => {
+    vi.useFakeTimers(); installCapture();
+    let pointer: ((sample: NativePointer) => void) | undefined;
+    const bridge = {
+      selectSource: vi.fn(async () => undefined), startPointer: vi.fn(async () => undefined), stopPointer: vi.fn(async () => undefined),
+      recordingState: vi.fn(async () => undefined), syncRecordingProgress: vi.fn(async (_progress: RecordingProgress) => undefined),
+      onPointer: (callback: (sample: NativePointer) => void) => { pointer = callback; return () => { pointer = undefined; }; },
+    };
+    vi.stubGlobal('window', { desktop: bridge });
+    const active = await recordImmediately();
+    const sample = (): void => pointer?.({ timestamp: Date.now(), x: 0.5, y: 0.5, kind: 'click', inside: true });
+    await vi.advanceTimersByTimeAsync(1000); sample();
+    active.pause(); active.pause();
+    expect(active.paused).toBe(true); expect(CaptureRecorder.instances[0].state).toBe('paused');
+    await vi.advanceTimersByTimeAsync(5000); sample();
+    expect(active.elapsed).toBeCloseTo(1);
+    const delayedPointer: NativePointer = { timestamp: Date.now() - 1000, x: 0.1, y: 0.2, kind: 'click', inside: true };
+    active.resume(); active.resume();
+    pointer?.(delayedPointer);
+    await vi.advanceTimersByTimeAsync(1000); sample();
+    const project = await active.stop();
+    expect(project.duration).toBeCloseTo(2);
+    expect(project.samples.map((event) => event.time)).toEqual([1, 2]);
+    expect(bridge.syncRecordingProgress).toHaveBeenCalledWith({ elapsed: 1, paused: true });
+    const progressCount = bridge.syncRecordingProgress.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(bridge.syncRecordingProgress.mock.calls).toHaveLength(progressCount);
+    URL.revokeObjectURL(project.videoUrl ?? '');
+  });
+
+  it('暂停状态结束录制也会保存有效片段并释放采集资源', async () => {
+    vi.useFakeTimers(); const capture = installCapture();
+    const active = await recordImmediately();
+    await vi.advanceTimersByTimeAsync(750); active.pause();
+    await vi.advanceTimersByTimeAsync(5000);
+    const project = await active.stop();
+    expect(project.duration).toBeCloseTo(0.75);
+    expect(capture.track.readyState).toBe('ended');
+    expect(CaptureRecorder.instances[0].state).toBe('inactive');
+    URL.revokeObjectURL(project.videoUrl ?? '');
+  });
+
   it('准备来源期间不启动录像，3 秒倒计时结束后才启动', async () => {
     vi.useFakeTimers(); installCapture();
     const prepared = await prepareRecording(CAPTURE);

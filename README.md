@@ -5,7 +5,7 @@
   <p>录下屏幕操作，让镜头自动跟上你的思路。</p>
   <p>
     <img src="https://img.shields.io/badge/Windows-桌面录屏-181818?style=flat-square" alt="Windows 桌面录屏">
-    <img src="https://img.shields.io/badge/版本-0.1.1-181818?style=flat-square" alt="版本 0.1.1">
+    <img src="https://img.shields.io/badge/版本-0.1.2-181818?style=flat-square" alt="版本 0.1.2">
     <a href="LICENSE"><img src="https://img.shields.io/badge/许可证-MIT-181818?style=flat-square" alt="MIT 许可证"></a>
   </p>
   <p>
@@ -110,11 +110,26 @@ npm run dev
 ## 录一段自己的演示
 
 1. **选来源**：点击「新建录制」，选择屏幕或应用窗口，确认实时预览。
-2. **开始演示**：设置声音与倒计时，点击「开始录制」；默认等待 3 秒。
-3. **整理镜头**：结束录制后，选择运镜风格，调整时间线、焦点和背景。
+2. **开始演示**：设置声音与倒计时，可在「提词器」中粘贴讲解稿；默认等待 3 秒后开始录制。
+3. **整理镜头**：通过悬浮小组件结束录制，返回编辑器，调整运镜风格、时间线和背景。焦点根据录制时的鼠标点击生成。
 4. **导出成片**：选择格式、比例与清晰度，工程和视频会保存到本地。
 
-录制中按 `Ctrl + Shift + F9` 结束，也可使用托盘菜单。编辑预览支持空格播放 / 暂停、左右方向键跳转。
+录制开始后，桌面主窗口自动隐藏，屏幕上只留下可拖动的悬浮小组件：查看有效时长、暂停／继续、打开提词器、结束录制。暂停时间不进入成片。按 `Ctrl + Shift + F8` 暂停／继续，按 `Ctrl + Shift + F9` 结束，也可使用托盘菜单。
+
+![录制中的悬浮小组件](docs/floating-dock.png)
+
+提词器支持自动滚动、速度、字号和镜像；暂停录制或收起提词器时停止滚动，讲解稿自动保存在本机。桌面悬浮控件和提词器设置了 Windows 屏幕采集排除。
+
+<details>
+<summary>查看提词器与全屏预览</summary>
+
+![可调速度和字号的提词器](docs/teleprompter.png)
+
+![全屏预览底部悬浮播放控制](docs/fullscreen-controls.png)
+
+</details>
+
+编辑预览支持空格播放／暂停、左右方向键跳转，双击画面进入或退出全屏。全屏底部显示进度、播放／暂停、声音和退出按钮，播放时自动淡出，移动鼠标重新显示。圆角在预览和导出中一致，不会露出白色矩形边缘。
 
 默认工程目录为软件目录下的 `projects/`，成片目录为 `exports/`。在设置中可以分别修改位置，已有工程与历史成片仍能在项目库打开。详细操作见 [使用指南](docs/使用指南.md)。
 
@@ -126,6 +141,7 @@ npm run dev
 npm test          # 单元测试
 npm run build     # 类型检查与构建
 npm run smoke     # Windows 桌面录制、恢复与导出集成验证
+npm run test:recording-controls # 主窗口隐藏、悬浮控件与提词器验证
 npm run test:updates # 先生成安装包，再验证下载校验、窗口控制与安装触发
 ```
 
