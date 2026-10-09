@@ -1,4 +1,4 @@
-import { ASPECTS, BACKGROUNDS, BACKGROUND_LIMITS, DEFAULT_SETTINGS, PRESETS } from './constants';
+import { ASPECTS, BACKGROUNDS, BACKGROUND_LIMITS, DEFAULT_SETTINGS, FRAME_LIMITS, PRESETS } from './constants';
 import type { MotionClip, PointerSample, ProjectData } from './types';
 
 export const PROJECT_MAGIC = 'CURSOR01';
@@ -37,12 +37,13 @@ export function parseProject(value: unknown): ProjectData {
   for (const [key, min, max] of numericSettings) if (!inRange(settings[key], min, max)) throw new Error('INVALID_SETTINGS');
   if (settings.backgroundBlur !== undefined && !inRange(settings.backgroundBlur, 0, BACKGROUND_LIMITS.blur)) throw new Error('INVALID_SETTINGS');
   if (settings.backgroundDim !== undefined && !inRange(settings.backgroundDim, 0, BACKGROUND_LIMITS.dim)) throw new Error('INVALID_SETTINGS');
+  if (settings.edgeGlass !== undefined && !inRange(settings.edgeGlass, 0, FRAME_LIMITS.edgeGlass)) throw new Error('INVALID_SETTINGS');
   for (const key of ['autoZoom', 'followCursor', 'clickEffect', 'spotlight']) if (typeof settings[key] !== 'boolean') throw new Error('INVALID_SETTINGS');
   for (let index = 1; index < value.samples.length; index++) if (value.samples[index].time < value.samples[index - 1].time) throw new Error('UNSORTED_SAMPLES');
   return {
     schemaVersion: 1, name: value.name.slice(0, 200), duration: value.duration,
     width: value.width, height: value.height, samples: value.samples, clips: value.clips,
-    settings: { ...DEFAULT_SETTINGS, ...settings } as ProjectData['settings'],
+    settings: { ...DEFAULT_SETTINGS, ...settings, edgeGlass: settings.edgeGlass ?? DEFAULT_SETTINGS.edgeGlass } as ProjectData['settings'],
     trimStart: value.trimStart, trimEnd: value.trimEnd,
     sourceType: value.sourceType, hasAudio: value.hasAudio === true,
     cursorEmbedded: value.cursorEmbedded ?? value.sourceType === 'video',

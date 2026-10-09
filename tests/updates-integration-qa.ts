@@ -24,6 +24,7 @@ const QA = { initialVersion: '0.1.0', filename: `Cursorama-Setup-${APP_VERSION}-
 const root = process.cwd();
 const output = path.join(root, '.qa');
 app.setPath('userData', path.join(output, 'updates-test-profile'));
+app.on('window-all-closed', () => undefined);
 
 class TestUpdater extends NsisUpdater {
   readonly httpExecutor: ElectronHttpExecutor;

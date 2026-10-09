@@ -74,12 +74,11 @@
 .app-header, .inspector, .timeline-panel, .modal, .preview-panel { background: var(--panel-background); }
 .app-rail { background: var(--rail-background); }
 .brand-mark { color: var(--primary-button-text); background: var(--primary-button); }
-.brand-text strong { letter-spacing: -.6px; font-size: 18px; font-weight: 650; color: var(--text-primary); }
 .primary-button { background: var(--primary-button); color: var(--primary-button-text); border-color: var(--primary-button); }
 .primary-button:hover:not(:disabled) { background: var(--primary-button-hover); border-color: var(--primary-button-hover); }
 .preview-stage { background: var(--canvas-surround); background-image: none; }
 .project-name, .inspector-heading h2, .timeline-title h2, .modal-heading h2 { color: var(--text-primary); }
-.control-label, .slider-label, .preset > span:not(.preset-art, .selection-dot), .inspector-tabs button, .segmented button, .text-button, .preview-hint, .timeline-title, .select-control, .number-pair label, .select-inline { color: var(--text-secondary); }
+.control-label, .slider-label, .preset > span:not(.preset-art, .selection-dot), .inspector-tabs button, .segmented button, .text-button, .timeline-title, .select-control, .number-pair label, .select-inline { color: var(--text-secondary); }
 .project-details, .preview-meta, .inspector-heading p, .section-caption, .slider-label output, .inspector-footer, .save-status, .small-tag, .timeline-footer, .track-labels, .ruler-ticks span, .field-hint, .modal-heading p, .toggle-row small, .inspector-note, .aspect-option small, .export-summary > div > span, .guide-steps p { color: var(--text-tertiary); }
 .preset.selected, .motion-clip.selected, .aspect-option.selected, .source-option.selected, .background-swatch.selected { border-color: var(--text-secondary); }
 .preset-art, .preset-art.cinematic, .preset-art.orbit, .preset-art.overview { background: linear-gradient(135deg, var(--tone-90), var(--tone-80)); }

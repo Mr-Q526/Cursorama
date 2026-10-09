@@ -29,6 +29,14 @@ export function samplePointer(samples: readonly PointerSample[], time: number): 
   return { time, x: lerp(previous.x, next.x, progress), y: lerp(previous.y, next.y, progress), kind: 'move' };
 }
 
+export function recordedFocus(samples: readonly PointerSample[], time: number): Pick<PointerSample, 'x' | 'y'> {
+  for (let index = samples.length ? sampleIndex(samples, time) : -1; index >= 0; index--) {
+    const sample = samples[index];
+    if (sample.kind === 'click' && sample.time <= time) return { x: sample.x, y: sample.y };
+  }
+  return { x: 0.5, y: 0.5 };
+}
+
 export function smoothPointer(samples: readonly PointerSample[], time: number): PointerSample {
   const sampleCount = 6;
   let x = 0;

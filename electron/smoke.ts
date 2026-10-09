@@ -8,6 +8,7 @@ import { desktopCatalog } from './catalog';
 import type { LibraryUIReport } from '../tests/library-ui-qa';
 import type { NavigationUIReport } from '../tests/navigation-ui-qa';
 import type { PreviewUIReport, RoundedFrameReport } from '../tests/preview-ui-qa';
+import type { GlassFrameReport } from '../tests/frame-glass-qa';
 
 interface CaptureReport {
   bytes: number[];
@@ -97,6 +98,8 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     const fullscreenControls = await window.webContents.executeJavaScript(`cursoramaQA.runFullscreenControlsQA()`, true) as PreviewUIReport;
     await writeFile(path.join(output, 'fullscreen-controls.png'), (await window.webContents.capturePage()).toPNG());
     const roundedFrame = await window.webContents.executeJavaScript(`cursoramaQA.runRoundedFrameQA()`, true) as RoundedFrameReport;
+    const { image: glassImage, ...glassFrame } = await window.webContents.executeJavaScript(`cursoramaQA.runGlassFrameQA()`, true) as GlassFrameReport;
+    await writeFile(path.join(output, 'glass-frame.png'), Buffer.from(glassImage.split(',')[1], 'base64'));
     await window.webContents.executeJavaScript(`document.exitFullscreen()`);
     const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } });
     const ownWindow = sources.find((source) => source.name === desktopCatalog.appName);
@@ -159,7 +162,7 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     await window.webContents.executeJavaScript(`cursoramaQA.restoreLibraryUIQA(${JSON.stringify(libraryReport.projectId)})`, true);
     await writeFile(path.join(output, 'library-restored.png'), await captureRestoredPage(window));
     const { bytes: _bytes, ...report } = result;
-    await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: true, ...report, bytes: raw.length, emptyWorkspace, navigation: { ...navigation, lightTheme: true, darkTheme: true }, library: { ...libraryReport, restoredAfterReload: true }, wallpapers: { count: wallpaperReport.count, coverAndFilters: wallpaperReport.coverAndFilters }, fullscreen, fullscreenControls, roundedFrame, recordingFlow: { ...ready, ...cancelledCountdown, ...startedCountdown }, renderer: rendererDetails, decodedFourK, decodedPausedRecording, errors }, null, 2));
+    await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: true, ...report, bytes: raw.length, emptyWorkspace, navigation: { ...navigation, lightTheme: true, darkTheme: true }, library: { ...libraryReport, restoredAfterReload: true }, wallpapers: { count: wallpaperReport.count, coverAndFilters: wallpaperReport.coverAndFilters }, fullscreen, fullscreenControls, roundedFrame, glassFrame, recordingFlow: { ...ready, ...cancelledCountdown, ...startedCountdown }, renderer: rendererDetails, decodedFourK, decodedPausedRecording, errors }, null, 2));
     if (errors.length) throw new Error(errors.join('\n'));
     console.info('桌面端验证通过：界面、原生鼠标追踪、应用窗口录制、3D 自动运镜、带效果 MP4 导出、项目恢复。');
     app.exit(0);

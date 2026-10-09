@@ -45,6 +45,7 @@ export interface VisualSettings {
   backgroundDim?: number;
   padding: number;
   radius: number;
+  edgeGlass?: number;
   shadow: number;
   aspect: AspectRatio;
   cursor: CursorStyle;

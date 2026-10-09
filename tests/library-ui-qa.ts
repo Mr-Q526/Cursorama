@@ -2,7 +2,7 @@ import type { LibraryProject } from '../shared';
 import { t } from '../src/i18n';
 
 export interface LibraryUIReport { projectId: string; name: string; projectPath: string; videoId: string; videoPath: string; automaticSave: boolean; videoWidth: number; videoHeight: number; }
-const UI_QA = { pollInterval: 50, timeout: 30_000, projectName: '本地项目库恢复验证', resolution: '720p' } as const;
+const UI_QA = { pollInterval: 50, timeout: 30_000, projectName: '本地项目库恢复验证', resolution: '720p', glassStrength: 73 } as const;
 
 async function waitUntil<T>(read: () => T | undefined | Promise<T | undefined>): Promise<T> {
   const deadline = performance.now() + UI_QA.timeout;
@@ -34,10 +34,14 @@ export async function runLibraryUIQA(): Promise<LibraryUIReport> {
   button(t.editor.background).click();
   await waitUntil(() => Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((item) => item.getAttribute('aria-label') === t.background.labels.bloom));
   button(t.background.labels.bloom).click();
+  const glass = document.querySelector<HTMLInputElement>(`input[aria-label="${t.frame.edgeGlass}"]`);
+  if (!glass) throw new Error('QA_GLASS_SETTING_MISSING');
+  setter.call(glass, String(UI_QA.glassStrength)); glass.dispatchEvent(new Event('input', { bubbles: true }));
   const saved = await waitUntil(async () => {
     const project = (await desktop.listLibrary()).projects.find((item) => item.id === id);
     if (project?.name !== UI_QA.projectName || document.querySelector('.save-status')?.textContent !== t.library.saved) return undefined;
-    return (await desktop.openLibraryProject(id)).data.settings.background === 'bloom' ? project : undefined;
+    const settings = (await desktop.openLibraryProject(id)).data.settings;
+    return settings.background === 'bloom' && settings.edgeGlass === UI_QA.glassStrength ? project : undefined;
   });
   button(t.editor.exportVideo).click();
   const dialog = await waitUntil(() => document.querySelector<HTMLElement>('[role="dialog"]') ?? undefined);
@@ -78,6 +82,7 @@ export async function runLibraryUIQA(): Promise<LibraryUIReport> {
   const restored = await desktop.openLibraryProject(id);
   if (restored.bytes?.byteLength !== recorded.bytes.byteLength || restored.data.width !== recorded.data.width) throw new Error('QA_LIBRARY_RESTORE_CHANGED_SOURCE');
   if (restored.data.settings.background !== 'bloom') throw new Error('QA_LIBRARY_RESTORE_LOST_WALLPAPER');
+  if (restored.data.settings.edgeGlass !== UI_QA.glassStrength) throw new Error('QA_LIBRARY_RESTORE_LOST_GLASS');
   return report;
 }
 

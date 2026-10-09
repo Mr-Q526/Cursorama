@@ -7,3 +7,4 @@ export * from './recording-clock';
 export * from './geometry';
 export * from './quality';
 export * from './backgrounds';
+export * from './frame-glass';

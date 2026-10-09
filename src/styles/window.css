@@ -1,8 +1,8 @@
-.desktop-window .app-header { position: relative; z-index: 60; padding-right: 0; -webkit-app-region: drag; app-region: drag; user-select: none; }
-.desktop-window .library-brand { -webkit-app-region: drag; app-region: drag; user-select: none; }
+.desktop-window .app-header { position: relative; z-index: 60; padding-right: 7px; -webkit-app-region: drag; app-region: drag; user-select: none; }
 .desktop-window .header-actions, .window-controls { -webkit-app-region: no-drag; app-region: no-drag; }
-.window-controls { display: flex; align-self: stretch; flex-shrink: 0; margin-left: 1px; border-left: 1px solid var(--line); }
-.window-control { display: grid; place-items: center; width: 46px; height: 100%; background: transparent; color: var(--text-secondary); border-radius: 0; }
+.window-controls { position: relative; display: flex; align-items: center; gap: 3px; flex-shrink: 0; padding-left: 13px; }
+.window-controls::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 1px; background: var(--line); }
+.window-control { display: grid; place-items: center; width: 35px; height: 32px; background: transparent; color: var(--text-tertiary); border-radius: 6px; }
 .window-control:hover { background: var(--tone-95); color: var(--text-primary); }
 .window-control.window-close:hover { background: var(--text-primary); color: var(--panel-background); }
 .window-control:active:not(:disabled) { transform: none; }

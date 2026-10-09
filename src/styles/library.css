@@ -1,8 +1,4 @@
-.library-sidebar { grid-column: 1; grid-row: 1 / -1; width: 232px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; padding: 24px 15px 15px; background: var(--rail-background); border-right: 1px solid var(--line); }
-.library-brand { display: flex; align-items: center; gap: 11px; padding: 0 7px 27px; }
-.library-brand strong { font-size: 19px; letter-spacing: -.5px; font-weight: 650; }
-.library-brand > div { display: flex; flex-direction: column; gap: 5px; }
-.library-brand > div > span { font-size: 10px; color: var(--text-tertiary); letter-spacing: 2px; }
+.library-sidebar { grid-column: 1; grid-row: 2; width: var(--library-width); flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; padding: 21px 15px 15px; background: var(--rail-background); border-right: 1px solid var(--line); }
 .library-actions > div { display: flex; justify-content: space-between; padding: 0 8px 20px; }
 .library-actions .text-button { font-size: 11px; }
 .sidebar-navigation { display: flex; flex-direction: column; gap: 5px; padding-top: 8px; }
@@ -33,5 +29,5 @@
 .export-preview-footer p, .export-preview-path { color: var(--text-tertiary); font-size: 10px; line-height: 1.8; }
 .export-preview-path { margin: 0; word-break: break-all; }
 .export-saved-path { display: block; max-width: 100%; word-break: break-all; color: var(--text-tertiary); font-size: 10px; line-height: 1.8; margin: 0 0 20px; }
-@media (max-width: 1240px) { .library-sidebar { width: 222px; padding-left: 10px; padding-right: 10px; } .editor-layout { padding-left: 18px; padding-right: 18px; gap: 15px; grid-template-columns: minmax(0, 1fr) 260px; } .brand-text > span { display: none; } .header-actions { gap: 9px; } .app-header { padding: 0 20px; } }
-@media (max-width: 1000px) { .library-sidebar { width: 202px; } .library-brand strong { font-size: 17px; } .brand-text > strong { font-size: 15px; } .header-actions .soft-button { padding: 0 10px; } .editor-layout { display: flex; flex-direction: column; overflow-y: auto; } .editor-center, .inspector { flex-shrink: 0; } .editor-center { overflow: visible; } .inspector-scroll { overflow: visible; } .project-name { max-width: 27vw; } .empty-workspace h1 { font-size: 26px; } }
+@media (max-width: 1240px) { .app-shell { --library-width: 222px; } .library-sidebar { padding-left: 10px; padding-right: 10px; } .editor-layout { padding-left: 18px; padding-right: 18px; gap: 15px; grid-template-columns: minmax(0, 1fr) 260px; } }
+@media (max-width: 1000px) { .app-shell { --library-width: 202px; } .header-project, .header-path-divider { display: none; } .editor-layout { display: flex; flex-direction: column; overflow-y: auto; } .editor-center, .inspector { flex-shrink: 0; } .editor-center { overflow: visible; } .inspector-scroll { overflow: visible; } .project-name { max-width: 27vw; } .empty-workspace h1 { font-size: 26px; } }

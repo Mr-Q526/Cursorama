@@ -4,6 +4,7 @@ import { createDemoProject, DEMO, drawDemo, loadVideo, prepareRecording, renderE
 
 export { prepareRecordingUI, cancelCountdownUI, startCountdownUI } from './recording-ui-qa';
 export { runFullscreenControlsQA, runRoundedFrameQA } from './preview-ui-qa';
+export { runGlassFrameQA } from './frame-glass-qa';
 
 export async function runExportQualityQA() {
   const demo = createDemoProject();

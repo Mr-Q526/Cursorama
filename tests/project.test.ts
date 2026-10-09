@@ -40,4 +40,12 @@ describe('项目持久化', () => {
     expect(parseProject({ ...metadata, cursorEmbedded: undefined }).cursorEmbedded).toBe(true);
     expect(() => parseProject({ ...metadata, cursorEmbedded: 'false' })).toThrow('INVALID_CURSOR_SOURCE');
   });
+  it('保存毛玻璃强度，并为旧工程补上默认效果', () => {
+    const settings = { ...DEFAULT_SETTINGS, edgeGlass: 82 };
+    expect(parseProject({ ...metadata, settings }).settings.edgeGlass).toBe(82);
+    expect(parseProject({ ...metadata, settings: { ...settings, edgeGlass: undefined } }).settings.edgeGlass).toBe(DEFAULT_SETTINGS.edgeGlass);
+    for (const edgeGlass of [-1, 101, '55', Number.NaN]) {
+      expect(() => parseProject({ ...metadata, settings: { ...settings, edgeGlass } })).toThrow('INVALID_SETTINGS');
+    }
+  });
 });

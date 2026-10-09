@@ -12,6 +12,7 @@ export * from './LibraryPage';
 export * from './SettingsDialog';
 export * from './UpdateSettings';
 export * from './WindowControls';
+export * from './AppHeader';
 export * from './PlaybackControls';
 export * from './PrompterSetup';
 export * from './RecordingDock';

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../shared';
 import type { MotionClip, PointerSample } from '../shared';
-import { cameraAt, generateClips, samplePointer } from '../src/engine/motion';
+import { cameraAt, generateClips, recordedFocus, samplePointer } from '../src/engine/motion';
 
 const click = (time: number, x = 0.8, y = 0.2): PointerSample => ({ time, x, y, kind: 'click' });
 const clip: MotionClip = { id: 'focus', start: 1, end: 4, x: 0.8, y: 0.2, zoom: 2, mode: 'cinematic', enabled: true, manual: false };
@@ -20,6 +20,13 @@ describe('自动镜头', () => {
   });
   it('不会用鼠标移动冒充点击生成镜头', () => {
     expect(generateClips([{ time: 3, x: 0.7, y: 0.3, kind: 'move' }], 10, 'focus')).toEqual([]);
+  });
+  it('补充镜头沿用最近一次真实点击，忽略移动与未来点击', () => {
+    const samples = [click(1, 0.7, 0.3), { time: 2, x: 0.1, y: 0.9, kind: 'move' } as const, click(4, 0.4, 0.6)];
+    expect(recordedFocus(samples, 3)).toEqual({ x: 0.7, y: 0.3 });
+    expect(recordedFocus(samples, 4)).toEqual({ x: 0.4, y: 0.6 });
+    expect(recordedFocus(samples, 0)).toEqual({ x: 0.5, y: 0.5 });
+    expect(recordedFocus([], 3)).toEqual({ x: 0.5, y: 0.5 });
   });
   it('镜头进出时回到原始画面，放大后取景不越界', () => {
     const samples = [click(2, 1, 0)];

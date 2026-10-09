@@ -4,7 +4,7 @@ import { createDemoProject, frameGeometry, VideoRenderer } from '../src/engine';
 export interface PreviewUIReport { focusRemoved: boolean; playbackControls: boolean; seek: boolean; pause: boolean; }
 export interface RoundedFrameReport { corners: boolean; scaled: boolean; }
 
-const PREVIEW_QA = { poll: 40, timeout: 6000, radius: 60, cornerInset: 2, colorTolerance: 8 } as const;
+const PREVIEW_QA = { poll: 40, timeout: 6000, radius: 60, cornerInset: 2, colorTolerance: 8, paintDelay: 160, clickX: 0.65, clickY: 0.6 } as const;
 
 async function until(check: () => boolean): Promise<void> {
   const deadline = performance.now() + PREVIEW_QA.timeout;
@@ -27,7 +27,16 @@ export async function runFullscreenControlsQA(): Promise<PreviewUIReport> {
   await until(() => controls.querySelector('.time-display')?.textContent?.startsWith('00:02') === true);
   const stage = document.querySelector('.preview-stage');
   const canvas = stage?.querySelector('canvas');
-  canvas?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 500, clientY: 300 }));
+  if (!canvas) throw new Error('QA_PREVIEW_CANVAS_MISSING');
+  await new Promise<void>((resolve) => setTimeout(resolve, PREVIEW_QA.paintDelay));
+  const frame = canvas.toDataURL();
+  const clips = document.querySelectorAll('.motion-clip').length;
+  const bounds = canvas.getBoundingClientRect();
+  const position = { bubbles: true, clientX: bounds.x + bounds.width * PREVIEW_QA.clickX, clientY: bounds.y + bounds.height * PREVIEW_QA.clickY };
+  canvas.dispatchEvent(new PointerEvent('pointerdown', position));
+  canvas.dispatchEvent(new MouseEvent('click', position));
+  await new Promise<void>((resolve) => setTimeout(resolve, PREVIEW_QA.paintDelay));
+  if (canvas.toDataURL() !== frame || document.querySelectorAll('.motion-clip').length !== clips || getComputedStyle(canvas).cursor !== 'default') throw new Error('QA_PREVIEW_CLICK_CHANGED_FOCUS');
   return { focusRemoved: true, playbackControls: true, seek: true, pause: true };
 }
 

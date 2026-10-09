@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApertureIcon, ArrowLeftIcon, CheckIcon, CircleIcon, DownloadSimpleIcon, FloppyDiskIcon, MonitorPlayIcon, RecordIcon, SparkleIcon, XIcon } from '@phosphor-icons/react';
+import { ApertureIcon, CheckIcon, CircleIcon, FloppyDiskIcon, MonitorPlayIcon, SparkleIcon, XIcon } from '@phosphor-icons/react';
 import type { ChangeEvent } from 'react';
 import type { EditorTab, EffectMode, ExportResult, LibraryProject, LibrarySnapshot, LibraryVideo, MotionClip, Project, ProjectData, RecordingCommand, StorageSettings, StoredProject, VisualSettings } from '../shared';
 import { AUTOSAVE_DELAY, DEFAULT_SETTINGS, PRESETS, PROJECT_EXTENSION, projectBytes, readProjectBytes, TIME } from '../shared';
-import { createDemoProject, downloadBlob, generateClips, loadVideo, startRecording } from './engine';
+import { createDemoProject, downloadBlob, generateClips, loadVideo, recordedFocus, startRecording } from './engine';
 import type { PreparedRecording, RecordingSession } from './engine';
 import { useAppPage, usePlayback, useTheme, useUpdates, type PrompterDraft } from './hooks';
-import { EmptyWorkspace, ExportDialog, ExportPreview, IconButton, Inspector, LibraryPage, LibrarySidebar, Modal, Preview, RecordDialog, RecordingDock, SettingsDialog, Teleprompter, Timeline, UpdateNotice, WindowControls } from './components';
+import { AppHeader, EmptyWorkspace, ExportDialog, ExportPreview, IconButton, Inspector, LibraryPage, LibrarySidebar, Modal, Preview, RecordDialog, RecordingDock, SettingsDialog, Teleprompter, Timeline, UpdateNotice } from './components';
 import { configureLibrary, hasLocalLibrary, listLibrary, openLibraryProject, openLibraryVideo, revealLibrary, saveLibraryProject } from './library';
 import type { LibraryVideoSource } from './library';
 import { formatTime, t } from './i18n';
@@ -156,10 +156,11 @@ export function App() {
   const settingsChanged = (settings: Partial<VisualSettings>): void => updateProject((current) => ({ ...current, settings: { ...current.settings, ...settings }, clips: settings.zoom === undefined ? current.clips : current.clips.map((clip) => ({ ...clip, zoom: settings.zoom ?? clip.zoom })) }));
   const presetChanged = (mode: EffectMode): void => updateProject((current) => ({ ...current, settings: { ...current.settings, mode, ...PRESETS[mode] }, clips: current.clips.map((clip) => ({ ...clip, mode, zoom: PRESETS[mode].zoom })) }));
   const clipChanged = (id: string, patch: Partial<MotionClip>): void => updateProject((current) => ({ ...current, clips: current.clips.map((clip) => clip.id === id ? { ...clip, ...patch } : clip).sort((first, second) => first.start - second.start) }));
-  const addShot = (x = 0.5, y = 0.5): void => {
+  const addShot = (): void => {
     if (!project) return;
     playback.pause();
     const start = Math.max(0, Math.min(playback.timeRef.current, project.duration - 0.25));
+    const { x, y } = recordedFocus(project.samples, start);
     const id = crypto.randomUUID();
     const clip: MotionClip = { id, start, end: Math.min(project.duration, start + 3), x, y, zoom: project.settings.zoom, mode: project.settings.mode, enabled: true, manual: true };
     updateProject((current) => ({ ...current, clips: [...current.clips, clip].sort((first, second) => first.start - second.start) }));
@@ -305,7 +306,7 @@ export function App() {
 
   return <div className={`app-shell${window.desktop ? ' desktop-window' : ''}`}>
     <LibrarySidebar page={page} disabled={busy} settingsOpen={dialog === 'settings'} onNavigate={navigate} onSettings={() => { playback.pause(); setDialog('settings'); void refreshLibrary(); }} onOpen={() => void open()} onImport={() => videoInput.current?.click()} onDemo={() => void changeWorkspace(createDemoProject())} />
-    <header className="app-header"><div className="brand-text"><strong>{page === 'workspace' ? copy.studio : t.navigation[page]}</strong></div><div className="header-actions">{page !== 'workspace' && <button type="button" className="text-button" onClick={() => navigate('workspace')} disabled={busy}><ArrowLeftIcon size={16} />{t.navigation.back}</button>}<button type="button" className="soft-button" onClick={record} disabled={busy}><RecordIcon size={17} weight="fill" />{copy.newRecording}</button>{page === 'workspace' && <button type="button" className="primary-button" onClick={() => { playback.pause(); setDialog('export'); }} disabled={!project || Boolean(videoSelection) || busy}><DownloadSimpleIcon size={17} />{copy.exportVideo}</button>}</div><WindowControls /></header>
+    <AppHeader page={page} projectName={project?.name} busy={busy} canExport={Boolean(project) && !videoSelection} onBack={() => navigate('workspace')} onRecord={record} onExport={() => { playback.pause(); setDialog('export'); }} />
     <div className="app-main" data-page={page}>
       {page === 'library' ? <LibraryPage library={library} error={libraryError} loading={libraryLoading} disabled={busy} projectId={videoSelection?.projectId ?? projectId} videoId={videoSelection?.video.id} onProject={(item) => void openStored(item)} onVideo={(item, video) => void openStored(item, video)} onRefresh={() => void refreshLibrary()} onRecord={record} onImport={() => videoInput.current?.click()} /> : videoSelection ? <ExportPreview video={videoSelection.video} url={videoSelection.source.url} onBack={() => setVideoSelection(null)} onReveal={() => void reveal(videoSelection.projectId, videoSelection.video.id)} onError={() => notify(t.library.videoFailed)} /> : project ? <>
         <div className="project-bar" data-project-id={projectId}><div className="project-title"><span className="project-icon"><MonitorPlayIcon size={20} /></span><div><input aria-label={t.appearance.projectName} className="project-name" value={project.name} maxLength={120} onChange={(event) => { const name = event.currentTarget.value; updateProject((current) => ({ ...current, name })); }} /><div className="project-details"><span>{formatTime(project.duration)}</span><span>·</span><span>{project.width} × {project.height}</span><span>·</span><span>{project.sourceType === 'demo' ? copy.demoBadge : t.library.autoSave}</span></div></div></div><div className="project-tools"><span className="save-status">{dirty || saving ? <CircleIcon size={7} weight="fill" /> : <CheckIcon size={13} />}{saving ? t.library.saving : dirty ? copy.unsaved : t.library.saved}</span>{project.sourceType === 'demo' && <button type="button" className="text-button" data-action="close-demo" disabled={busy} onClick={() => void changeWorkspace(null)}>{t.library.closeDemo}</button>}<button className="text-button" type="button" onClick={() => void save()} disabled={busy}><FloppyDiskIcon size={17} />{copy.saveProject}</button></div></div>

@@ -13,9 +13,11 @@ export interface WindowUIReport {
   themes: boolean;
   sourceIsolation: boolean;
   close: boolean;
+  compactHeader: boolean;
+  responsiveHeader: boolean;
 }
 
-const WINDOW_QA = { timeout: 8000, poll: 50, paintDelay: 300 } as const;
+const WINDOW_QA = { timeout: 8000, poll: 50, paintDelay: 300, headerHeight: 54, widths: [1480, 1080, 800] } as const;
 
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message); }
 
@@ -38,6 +40,22 @@ export async function runWindowUIQA(window: BrowserWindow, output: string): Prom
   assert(await evaluate<boolean>(`getComputedStyle(document.querySelector('.app-header')).getPropertyValue('-webkit-app-region') === 'drag' && getComputedStyle(document.querySelector('.header-actions')).getPropertyValue('-webkit-app-region') === 'no-drag' && getComputedStyle(document.querySelector('.window-controls')).getPropertyValue('-webkit-app-region') === 'no-drag'`), 'WINDOW_QA_DRAG_REGIONS_INVALID');
   await click('.settings-dialog .modal-heading .icon-button');
   await waitFor(() => evaluate<boolean>(`!document.querySelector('.settings-dialog')`), 'WINDOW_QA_SETTINGS_NOT_CLOSED');
+  for (const width of WINDOW_QA.widths) {
+    window.setSize(width, bounds.height); await settle();
+    assert(await evaluate<boolean>(`(() => {
+      const header = document.querySelector('.app-header').getBoundingClientRect();
+      const brand = document.querySelector('.header-brand').getBoundingClientRect();
+      const context = document.querySelector('.header-context').getBoundingClientRect();
+      const actions = document.querySelector('.header-actions').getBoundingClientRect();
+      const controls = document.querySelector('.window-controls').getBoundingClientRect();
+      const sidebar = document.querySelector('.library-sidebar').getBoundingClientRect();
+      return header.x === 0 && header.width === innerWidth && header.height === ${WINDOW_QA.headerHeight}
+        && brand.width === sidebar.width && sidebar.top === header.bottom && context.right <= actions.left
+        && actions.right < controls.left && controls.right <= innerWidth
+        && Array.from(document.querySelectorAll('.window-control')).every(button => { const box = button.getBoundingClientRect(); return box.top >= 0 && box.bottom <= header.bottom; });
+    })()`), `WINDOW_QA_HEADER_LAYOUT_${width}`);
+  }
+  window.setBounds(bounds); await settle();
   await click('[data-window-action="maximize"]');
   await waitFor(async () => window.isMaximized() && await titleMatches(t.window.restore), 'WINDOW_QA_MAXIMIZE_FAILED');
   await click('[data-window-action="maximize"]');
@@ -70,5 +88,5 @@ export async function runWindowUIQA(window: BrowserWindow, output: string): Prom
   const closed = new Promise<void>((resolve) => window.once('closed', resolve));
   await click('[data-window-action="close"]');
   await Promise.race([closed, new Promise<never>((_resolve, reject) => { const timeout = setTimeout(() => reject(new Error('WINDOW_QA_CLOSE_FAILED')), WINDOW_QA.timeout); timeout.unref(); })]);
-  return { frameless: true, dragRegions: true, maximize: true, restore: true, minimize: true, modalControls: true, themes: true, sourceIsolation: true, close: true };
+  return { frameless: true, dragRegions: true, maximize: true, restore: true, minimize: true, modalControls: true, themes: true, sourceIsolation: true, close: true, compactHeader: true, responsiveHeader: true };
 }

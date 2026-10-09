@@ -5,10 +5,11 @@ import { DEMO, drawDemo } from './demo';
 import { frameGeometry } from './geometry';
 import { hasEmbeddedCursor } from './quality';
 import { BackgroundRenderer } from './backgrounds';
+import { FrameGlass, frameMaterial, GLASS_MATERIAL } from './frame-glass';
+import type { FrameMaterial } from './frame-glass';
 
 const RENDER = {
   cursorReferenceWidth: 1600, clickRadius: 52, spotlightRadius: 145,
-  radiusReferenceWidth: 1280,
   shadowScale: 0.55, verticalTiltScale: 0.7,
 } as const;
 const VERTEX_SHADER = `
@@ -29,19 +30,49 @@ const VERTEX_SHADER = `
   }
 `;
 const FRAGMENT_SHADER = `
-  precision mediump float;
+  precision highp float;
   varying vec2 v_uv;
   uniform sampler2D u_texture;
+  uniform sampler2D u_backdrop;
   uniform vec2 u_pixels;
+  uniform vec2 u_output;
   uniform float u_radius;
+  uniform float u_outset;
+  uniform float u_strength;
+  uniform float u_blur;
+  uniform float u_feather;
+  vec4 videoAt(vec2 uv) {
+    return texture2D(u_texture, clamp(vec2(uv.x, 1.0 - uv.y), 0.0, 1.0));
+  }
+  vec3 frostedVideo(vec2 uv) {
+    vec2 step = vec2(u_blur) / u_pixels;
+    vec3 color = videoAt(uv).rgb * ${GLASS_MATERIAL.centerWeight};
+    color += (videoAt(uv + vec2(step.x, 0.0)).rgb + videoAt(uv - vec2(step.x, 0.0)).rgb
+      + videoAt(uv + vec2(0.0, step.y)).rgb + videoAt(uv - vec2(0.0, step.y)).rgb) * ${GLASS_MATERIAL.axialWeight};
+    color += (videoAt(uv + step).rgb + videoAt(uv - step).rgb
+      + videoAt(uv + vec2(step.x, -step.y)).rgb + videoAt(uv + vec2(-step.x, step.y)).rgb) * ${GLASS_MATERIAL.cornerWeight};
+    return color;
+  }
   void main() {
-    vec2 p = v_uv * u_pixels;
+    vec2 p = v_uv * (u_pixels + vec2(u_outset * 2.0)) - vec2(u_outset);
     vec2 q = abs(p - u_pixels * 0.5) - (u_pixels * 0.5 - vec2(u_radius));
     float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - u_radius;
-    float alpha = 1.0 - smoothstep(-1.0, 1.0, d);
-    vec4 color = texture2D(u_texture, vec2(v_uv.x, 1.0 - v_uv.y));
+    float alpha = 1.0 - smoothstep(-u_feather, u_feather, d);
+    vec2 uv = p / u_pixels;
+    vec4 color = videoAt(uv);
     float coverage = color.a * alpha;
-    gl_FragColor = vec4(color.rgb * coverage, coverage);
+    vec3 glass = vec3(0.0);
+    float glassAlpha = 0.0;
+    if (u_strength > 0.0 && d > -u_blur) {
+      vec3 blurred = frostedVideo(uv);
+      color.rgb = mix(color.rgb, blurred, smoothstep(-u_blur, 0.0, d) * u_strength * ${GLASS_MATERIAL.edgeMix});
+      vec2 backdropUV = vec2(gl_FragCoord.x / u_output.x, 1.0 - gl_FragCoord.y / u_output.y);
+      glass = mix(texture2D(u_backdrop, backdropUV).rgb, blurred, u_strength * ${GLASS_MATERIAL.reflection});
+      glass = mix(glass, vec3(1.0), u_strength * (${GLASS_MATERIAL.tint} + ${GLASS_MATERIAL.highlight} * exp(-abs(d) / u_feather)));
+      glassAlpha = u_strength * ${GLASS_MATERIAL.opacity} * (1.0 - smoothstep(0.0, max(u_outset, 1.0), max(d, 0.0)));
+    }
+    float rimCoverage = glassAlpha * (1.0 - coverage);
+    gl_FragColor = vec4(color.rgb * coverage + glass * rimCoverage, coverage + rimCoverage);
   }
 `;
 
@@ -55,6 +86,7 @@ function compileShader(gl: WebGLRenderingContext, type: number, source: string):
 
 export class VideoRenderer {
   private readonly background = new BackgroundRenderer();
+  private readonly glass = new FrameGlass();
   private readonly output: CanvasRenderingContext2D;
   private readonly layer = document.createElement('canvas');
   private readonly sourceCanvas = document.createElement('canvas');
@@ -62,6 +94,7 @@ export class VideoRenderer {
   private readonly gl: WebGLRenderingContext | null;
   private program: WebGLProgram | null = null;
   private texture: WebGLTexture | null = null;
+  private backdropTexture: WebGLTexture | null = null;
   private buffer: WebGLBuffer | null = null;
   private readonly demoCanvas = document.createElement('canvas');
   private readonly demoContext: CanvasRenderingContext2D;
@@ -85,16 +118,21 @@ export class VideoRenderer {
     gl.attachShader(program, vertex); gl.attachShader(program, fragment); gl.linkProgram(program);
     gl.deleteShader(vertex); gl.deleteShader(fragment);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error('PROGRAM_LINK_FAILED');
-    this.program = program; this.buffer = gl.createBuffer(); this.texture = gl.createTexture();
+    this.program = program; this.buffer = gl.createBuffer(); this.texture = gl.createTexture(); this.backdropTexture = gl.createTexture();
     gl.useProgram(program); gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     const attribute = gl.getAttribLocation(program, 'a_position');
     gl.enableVertexAttribArray(attribute); gl.vertexAttribPointer(attribute, 2, gl.FLOAT, false, 0, 0);
-    gl.bindTexture(gl.TEXTURE_2D, this.texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    for (const [unit, texture] of [[gl.TEXTURE0, this.texture], [gl.TEXTURE1, this.backdropTexture]] as const) {
+      gl.activeTexture(unit); gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]));
+    gl.uniform1i(gl.getUniformLocation(program, 'u_texture'), 0);
+    gl.uniform1i(gl.getUniformLocation(program, 'u_backdrop'), 1);
   }
 
   get supports3D(): boolean { return Boolean(this.gl); }
@@ -109,8 +147,10 @@ export class VideoRenderer {
     } else if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) input = video;
     else { this.drawBackground(settings); return camera; }
     this.drawBackground(settings);
+    const backdropChanged = this.glass.prepare(this.canvas, settings);
     const { width, height } = this.canvas;
     const { width: frameWidth, height: frameHeight } = frameGeometry(width, height, project.width, project.height, settings.padding);
+    const material = frameMaterial(settings, width, frameWidth, frameHeight);
     const sourceWidth = Math.round(frameWidth);
     const sourceHeight = Math.round(frameHeight);
     if (this.sourceCanvas.width !== sourceWidth || this.sourceCanvas.height !== sourceHeight) {
@@ -129,14 +169,11 @@ export class VideoRenderer {
     this.output.shadowBlur = frameWidth * 0.05 * shadow;
     this.output.shadowOffsetY = frameHeight * 0.045 * shadow;
     if (this.gl && this.program) {
-      this.drawGL(camera, settings, frameWidth, frameHeight);
+      this.drawGL(camera, material, frameWidth, frameHeight, backdropChanged);
       this.output.drawImage(this.layer, 0, 0);
     } else {
-      const x = (width - frameWidth) / 2;
-      const y = (height - frameHeight) / 2;
-      this.output.beginPath(); this.output.roundRect(x, y, frameWidth, frameHeight, settings.radius * width / RENDER.radiusReferenceWidth); this.output.fillStyle = '#ffffff'; this.output.fill();
-      this.output.shadowBlur = 0; this.output.shadowOffsetY = 0;
-      this.output.clip(); this.output.drawImage(this.sourceCanvas, x, y, frameWidth, frameHeight);
+      const surface = this.glass.composite(this.sourceCanvas, width, height, frameWidth, frameHeight, material);
+      this.output.drawImage(surface, (width - frameWidth) / 2 - material.outset, (height - frameHeight) / 2 - material.outset);
     }
     this.output.restore();
     return camera;
@@ -147,19 +184,27 @@ export class VideoRenderer {
     this.background.render(this.output, width, height, settings);
   }
 
-  private drawGL(camera: CameraState, settings: VisualSettings, frameWidth: number, frameHeight: number): void {
+  private drawGL(camera: CameraState, material: FrameMaterial, frameWidth: number, frameHeight: number, backdropChanged: boolean): void {
     const gl = this.gl; const program = this.program;
     if (!gl || !program) return;
     const { width, height } = this.canvas;
     if (this.layer.width !== width || this.layer.height !== height) { this.layer.width = width; this.layer.height = height; }
     gl.viewport(0, 0, width, height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.useProgram(program); gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.useProgram(program);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.backdropTexture);
+    if (backdropChanged) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.glass.backdrop);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.sourceCanvas);
-    gl.uniform2f(gl.getUniformLocation(program, 'u_size'), frameWidth / width, frameHeight / height);
+    gl.uniform2f(gl.getUniformLocation(program, 'u_size'), (frameWidth + material.outset * 2) / width, (frameHeight + material.outset * 2) / height);
     gl.uniform1f(gl.getUniformLocation(program, 'u_aspect'), width / height);
     gl.uniform2f(gl.getUniformLocation(program, 'u_rotation'), camera.rotateX * MOTION.degreesToRadians, camera.rotateY * MOTION.degreesToRadians);
     gl.uniform2f(gl.getUniformLocation(program, 'u_pixels'), frameWidth, frameHeight);
-    gl.uniform1f(gl.getUniformLocation(program, 'u_radius'), settings.radius * width / RENDER.radiusReferenceWidth);
+    gl.uniform2f(gl.getUniformLocation(program, 'u_output'), width, height);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_radius'), material.radius);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_outset'), material.outset);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_strength'), material.strength);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_blur'), material.blur);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_feather'), material.feather);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
@@ -200,7 +245,8 @@ export class VideoRenderer {
 
   dispose(): void {
     this.background.dispose();
-    if (this.gl) { this.gl.deleteTexture(this.texture); this.gl.deleteProgram(this.program); this.gl.deleteBuffer(this.buffer); }
+    this.glass.dispose();
+    if (this.gl) { this.gl.deleteTexture(this.texture); this.gl.deleteTexture(this.backdropTexture); this.gl.deleteProgram(this.program); this.gl.deleteBuffer(this.buffer); }
   }
 }
 

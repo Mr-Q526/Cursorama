@@ -71,7 +71,7 @@ export const DEFAULT_SETTINGS: VisualSettings = {
   mode: 'cinematic', autoZoom: true, followCursor: true, zoom: 1.85,
   tilt: 12, easing: 0.6, background: 'paper', padding: 9, radius: 18,
   backgroundBlur: 0, backgroundDim: 0,
-  shadow: 45, aspect: '16:9', cursor: 'arrow', cursorSize: 28,
+  edgeGlass: 55, shadow: 45, aspect: '16:9', cursor: 'arrow', cursorSize: 28,
   clickEffect: true, spotlight: false,
 };
 
@@ -98,6 +98,7 @@ export const BACKGROUNDS: Record<BackgroundId, readonly [string, string, string]
 export const WALLPAPER_IDS = ['bloom', 'silk', 'aurora', 'dunes'] as const;
 export const NEUTRAL_BACKGROUND_IDS = ['silver', 'smoke', 'graphite', 'charcoal', 'ink', 'paper'] as const;
 export const BACKGROUND_LIMITS = { blur: 24, dim: 60, referenceHeight: 1080, blurOverscan: 3 } as const;
+export const FRAME_LIMITS = { edgeGlass: 100, referenceWidth: 1280, glassOutset: 16, glassBlur: 14, glassFeather: 2 } as const;
 
 export const ASPECTS: Record<AspectRatio, number> = {
   '16:9': 16 / 9, '9:16': 9 / 16, '1:1': 1, '4:3': 4 / 3,

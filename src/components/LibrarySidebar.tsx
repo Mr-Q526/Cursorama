@@ -1,4 +1,4 @@
-import { ApertureIcon, FileArrowUpIcon, FolderOpenIcon, GearSixIcon, MonitorPlayIcon, QuestionIcon, SquaresFourIcon } from '@phosphor-icons/react';
+import { FileArrowUpIcon, FolderOpenIcon, GearSixIcon, MonitorPlayIcon, QuestionIcon, SquaresFourIcon } from '@phosphor-icons/react';
 import type { AppPage } from '../hooks';
 import { t } from '../i18n';
 
@@ -16,7 +16,6 @@ export interface LibrarySidebarProps {
 export function LibrarySidebar({ page, disabled, settingsOpen, onNavigate, onSettings, onOpen, onImport, onDemo }: LibrarySidebarProps) {
   const copy = t.navigation;
   return <aside className="library-sidebar" aria-label={copy.label}>
-    <div className="library-brand"><span className="brand-mark"><ApertureIcon size={27} weight="fill" /></span><div><strong>{t.editor.appName}</strong><span>{t.editor.tagline}</span></div></div>
     <div className="library-actions">
       <div><button className="text-button" type="button" onClick={onOpen} disabled={disabled}><FolderOpenIcon size={16} />{t.editor.openProject}</button><button className="text-button" type="button" onClick={onImport} disabled={disabled}><FileArrowUpIcon size={16} />{t.library.import}</button></div>
     </div>
