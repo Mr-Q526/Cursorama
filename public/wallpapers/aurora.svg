@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#c3b1e1"/><stop offset=".43" stop-color="#8766bf"/><stop offset=".74" stop-color="#3d4291"/><stop offset="1" stop-color="#171d50"/></linearGradient>
+    <linearGradient id="orchid" x1="0" y1=".1" x2="1" y2=".86"><stop stop-color="#dfd0e9"/><stop offset=".32" stop-color="#b59dd6"/><stop offset=".67" stop-color="#8460bb"/><stop offset="1" stop-color="#4c4b99"/></linearGradient>
+    <linearGradient id="rose" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f1c9d9"/><stop offset=".3" stop-color="#c094cb"/><stop offset=".59" stop-color="#886ab4"/><stop offset="1" stop-color="#414484"/></linearGradient>
+    <linearGradient id="blue" x1=".08" y1="0" x2=".85" y2="1"><stop stop-color="#809dda"/><stop offset=".4" stop-color="#696db6"/><stop offset=".72" stop-color="#494c99"/><stop offset="1" stop-color="#1d285e"/></linearGradient>
+    <linearGradient id="night" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#475894"/><stop offset=".5" stop-color="#252c69"/><stop offset="1" stop-color="#0f1947"/></linearGradient>
+    <filter id="shadow" x="-.3" y="-.3" width="1.6" height="1.6"><feDropShadow dx="-15" dy="55" stdDeviation="65" flood-color="#342258" flood-opacity=".2"/></filter>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h3840v2160H0z"/>
+  <g filter="url(#shadow)">
+    <path fill="url(#orchid)" d="M-300 270C580 480 640-160 1540-50s1310 700 2590 500v1910H-300Z"/>
+    <path fill="url(#rose)" d="M-330 740c640 470 1230 190 1870-70s1150-30 2600 340v1330H-330Z"/>
+    <path fill="url(#blue)" d="M-330 1190c830 490 1600-350 2330-290s1390 960 2180 1030v460H-330Z"/>
+    <path fill="url(#night)" d="M-200 1770c1030 530 1680-570 2490-260s1130 820 1750 550v490H-200Z"/>
+  </g>
+  <path fill="none" stroke="#fff" stroke-opacity=".19" stroke-width="3" d="M-300 270C580 480 640-160 1540-50s1310 700 2590 500M-330 740c640 470 1230 190 1870-70s1150-30 2600 340M-330 1190c830 490 1600-350 2330-290s1390 960 2180 1030"/>
+</svg>

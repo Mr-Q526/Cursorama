@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f4f4f3"/><stop offset=".5" stop-color="#d7d8da"/><stop offset="1" stop-color="#9a9da2"/></linearGradient>
+    <linearGradient id="pearl" x1=".12" y1="0" x2=".88" y2="1"><stop stop-color="#ffffff"/><stop offset=".33" stop-color="#eeeeed"/><stop offset=".61" stop-color="#aeb1b5"/><stop offset=".82" stop-color="#f7f7f6"/><stop offset="1" stop-color="#8c9197"/></linearGradient>
+    <linearGradient id="crease" x1=".2" y1="1" x2=".85" y2=".15"><stop stop-color="#696f76"/><stop offset=".32" stop-color="#bbbfc3"/><stop offset=".64" stop-color="#fcfcfb"/><stop offset=".84" stop-color="#ddddde"/><stop offset="1" stop-color="#898e96"/></linearGradient>
+    <linearGradient id="dark" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#4e545d"/><stop offset=".45" stop-color="#aaaeb4"/><stop offset=".75" stop-color="#e5e6e7"/><stop offset="1" stop-color="#fafaf9"/></linearGradient>
+    <filter id="shadow" x="-.3" y="-.3" width="1.6" height="1.6"><feDropShadow dx="-30" dy="50" stdDeviation="45" flood-color="#353a43" flood-opacity=".28"/></filter>
+  </defs>
+  <path fill="url(#base)" d="M0 0h3840v2160H0z"/>
+  <g filter="url(#shadow)">
+    <path fill="url(#pearl)" d="M-350 1780C440 1520 520 250 1790-140s1820 620 2600 1010v1470H-350Z"/>
+    <path fill="url(#crease)" d="M-200 2430C-90 1230 1340 1880 1430 1010s720-1150 1450-1050c-740 230-790 620-570 990s970 410 720 890-2030 490-3230 590Z"/>
+    <path fill="url(#pearl)" d="M3870 130c-1740-300-1990 1060-2610 1080s-1180-200-1630 680v680h4240Z"/>
+    <path fill="url(#dark)" d="M4060 1270c-730-630-1270-1090-1760-550s-110 1240-930 1700h2690Z"/>
+    <path fill="url(#pearl)" d="M4190 1800c-1400-1400-1360-240-2260-540S380 1410-350 2330h4540Z"/>
+    <path fill="url(#crease)" d="M4100 2520c-980-1800-900-1280-1790-840s-1580-240-2400 770Z"/>
+  </g>
+  <path fill="none" stroke="#fff" stroke-opacity=".58" stroke-width="3" d="M-220 1810C480 1380 690 340 1760 30M3890 80c-1620-260-1940 1150-2630 1130M200 2020c1030-960 1260-820 1610-740s630 150 1090-130"/>
+</svg>

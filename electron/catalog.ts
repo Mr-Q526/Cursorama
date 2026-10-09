@@ -1,0 +1,13 @@
+export const desktopCatalog = {
+  appName: 'Cursorama', screen: '屏幕', exportTitle: '保存演示视频',
+  saveProjectTitle: '保存Cursorama项目', openProjectTitle: '打开Cursorama项目',
+  projectType: 'Cursorama项目', mp4Type: 'MP4 视频', webmType: 'WebM 视频',
+  invalidSource: '录制来源不可用，请重新选择。', invalidRequest: '请求参数不完整。',
+  invalidProject: '无法读取项目文件，文件可能损坏或版本不兼容。',
+  pointerError: '鼠标追踪未能启动。', encodeError: '视频编码失败，请重试。',
+  unsupportedPlatform: '当前鼠标追踪仅支持 Windows。',
+  trayStop: '结束录制', trayShow: '显示Cursorama', trayRecording: 'Cursorama正在录制，Ctrl + Shift + F9 结束',
+  unsavedRecordingTitle: '录制仍在进行', unsavedRecordingBody: '先结束录制，再关闭应用。',
+  unsavedRecordingButton: '继续录制',
+  chooseProjectDirectory: '选择工程保存目录', chooseExportDirectory: '选择视频导出目录',
+} as const;

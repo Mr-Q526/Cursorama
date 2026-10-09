@@ -1,0 +1,111 @@
+:root, :root[data-theme='light'] {
+  color-scheme: light;
+  --tone-0: #000000;
+  --tone-5: #0d0d0d;
+  --tone-10: #191919;
+  --tone-15: #262626;
+  --tone-20: #333333;
+  --tone-25: #404040;
+  --tone-30: #4d4d4d;
+  --tone-35: #595959;
+  --tone-40: #666666;
+  --tone-45: #737373;
+  --tone-50: #808080;
+  --tone-55: #8c8c8c;
+  --tone-60: #999999;
+  --tone-65: #a6a6a6;
+  --tone-70: #b3b3b3;
+  --tone-75: #bfbfbf;
+  --tone-80: #cccccc;
+  --tone-85: #d9d9d9;
+  --tone-90: #e6e6e6;
+  --tone-95: #f2f2f2;
+  --tone-100: #ffffff;
+  --text-primary: #161616;
+  --text-secondary: #606060;
+  --text-tertiary: #777777;
+  --shell-background: #f6f6f6;
+  --panel-background: #ffffff;
+  --rail-background: #f0f0f0;
+  --canvas-surround: #eaeaea;
+  --primary-button: #191919;
+  --primary-button-hover: #363636;
+  --primary-button-text: #ffffff;
+  --modal-overlay: #00000080;
+  --danger: #9b3030;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --tone-0: #ffffff;
+  --tone-5: #f2f2f2;
+  --tone-10: #e5e5e5;
+  --tone-15: #d9d9d9;
+  --tone-20: #cccccc;
+  --tone-25: #c0c0c0;
+  --tone-30: #b3b3b3;
+  --tone-35: #a6a6a6;
+  --tone-40: #999999;
+  --tone-45: #8d8d8d;
+  --tone-50: #818181;
+  --tone-55: #757575;
+  --tone-60: #696969;
+  --tone-65: #5c5c5c;
+  --tone-70: #505050;
+  --tone-75: #444444;
+  --tone-80: #383838;
+  --tone-85: #2c2c2c;
+  --tone-90: #252525;
+  --tone-95: #1b1b1b;
+  --tone-100: #141414;
+  --text-primary: #eeeeee;
+  --text-secondary: #b2b2b2;
+  --text-tertiary: #909090;
+  --shell-background: #101010;
+  --panel-background: #171717;
+  --rail-background: #131313;
+  --canvas-surround: #0c0c0c;
+  --primary-button: #eeeeee;
+  --primary-button-hover: #ffffff;
+  --primary-button-text: #151515;
+  --modal-overlay: #000000ab;
+  --danger: #dc8a8a;
+}
+.app-shell { background: var(--shell-background); color: var(--text-primary); }
+.app-header, .inspector, .timeline-panel, .modal, .preview-panel { background: var(--panel-background); }
+.app-rail { background: var(--rail-background); }
+.brand-mark { color: var(--primary-button-text); background: var(--primary-button); }
+.brand-text strong { letter-spacing: -.6px; font-size: 18px; font-weight: 650; color: var(--text-primary); }
+.primary-button { background: var(--primary-button); color: var(--primary-button-text); border-color: var(--primary-button); }
+.primary-button:hover:not(:disabled) { background: var(--primary-button-hover); border-color: var(--primary-button-hover); }
+.preview-stage { background: var(--canvas-surround); background-image: none; }
+.project-name, .inspector-heading h2, .timeline-title h2, .modal-heading h2 { color: var(--text-primary); }
+.control-label, .slider-label, .preset > span:not(.preset-art, .selection-dot), .inspector-tabs button, .segmented button, .text-button, .preview-hint, .timeline-title, .select-control, .number-pair label, .select-inline { color: var(--text-secondary); }
+.project-details, .preview-meta, .inspector-heading p, .section-caption, .slider-label output, .inspector-footer, .save-status, .small-tag, .timeline-footer, .track-labels, .ruler-ticks span, .field-hint, .modal-heading p, .toggle-row small, .inspector-note, .aspect-option small, .export-summary > div > span, .guide-steps p { color: var(--text-tertiary); }
+.preset.selected, .motion-clip.selected, .aspect-option.selected, .source-option.selected, .background-swatch.selected { border-color: var(--text-secondary); }
+.preset-art, .preset-art.cinematic, .preset-art.orbit, .preset-art.overview { background: linear-gradient(135deg, var(--tone-90), var(--tone-80)); }
+.mini-screen { background: var(--tone-100); box-shadow: 0 4px 9px #00000022; }
+.mini-screen::before { background: linear-gradient(var(--tone-85) 40%, transparent 40%, transparent 49%, var(--tone-90) 49%, var(--tone-90) 75%, transparent 75%); }
+.mini-screen::after { background: var(--tone-80); }
+.modal-backdrop { background: var(--modal-overlay); }
+.recording-overlay, .processing-overlay { background: var(--shell-background); }
+.countdown-overlay { background: #000000cc; color: #ffffff; }
+.countdown-overlay > span { color: #dddddd; }
+.recording-clock { color: var(--text-primary); }
+.text-button.danger, .error-message { color: var(--danger); }
+.rail-bottom .profile-mark { color: var(--text-secondary); background: var(--tone-90); }
+.toggle.on { background: var(--primary-button); }
+.toggle span { background: var(--primary-button-text); }
+.toggle:not(.on) span { background: var(--tone-100); }
+.selection-dot { background: var(--text-primary); border-color: var(--tone-95); box-shadow: 0 0 0 1px var(--tone-60); }
+.motion-clip { color: var(--text-secondary); }
+.swatch-check { color: #161616; background: #ffffff; }
+.background-swatch > span:first-child { background: #ffffffcc; color: #333333; }
+.modal .guide-steps h3 { color: var(--text-primary); }
+.app-rail .icon-button.active { color: var(--text-primary); background: var(--tone-90); }
+.control-label, .slider-label, .section-caption, .number-pair label, .select-control, .preset > span:not(.preset-art, .selection-dot) { font-size: 11px; }
+.inspector-heading h2 { font-size: 14px; }
+.project-details, .preview-meta, .timeline-title h2 { font-size: 10px; }
+.project-name { font-size: 16px; }
+.timeline-rails, .track-labels { user-select: none; }
+@media (max-width: 1000px) { .header-actions { gap: 8px; } }
+@media (max-height: 740px) { .app-shell { min-height: 640px; } .timeline-panel { height: 197px; } .project-bar { height: 66px; } .preview-panel { min-height: 230px; } }

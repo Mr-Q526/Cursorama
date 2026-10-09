@@ -1,0 +1,15 @@
+export const demoCatalog = {
+  productName: '留白', workspace: '设计工作室', search: '搜索项目、任务或灵感',
+  overview: '工作概览', projects: '我的项目', calendar: '日程安排', library: '灵感收藏',
+  team: '团队空间', title: '让想法，有条不紊地发生。',
+  subtitle: '这里是你的创作空间。今天也向前迈一小步。', newProject: '新建项目',
+  week: '本周计划', allProjects: '所有项目', inProgress: '进行中', done: '已完成',
+  cardTitle: '品牌视觉更新', cardBody: '把新的表达，带进每一个细节。',
+  cardTitle2: '产品体验设计', cardBody2: '从第一个点击，到最后一个微笑。',
+  cardTitle3: '秋日灵感集', cardBody3: '收集色彩、光影与恰好的留白。',
+  tasks: '待办事项', task1: '整理视觉参考与素材', task2: '完成首页设计稿',
+  task3: '准备产品演示视频', tasksHint: '专注当下，把好想法做出来。',
+  members: '团队协作', membersHint: '好的作品，来自一起前进。',
+  toast: '设计稿已保存，灵感继续。', saved: '已同步', activity: '最近更新',
+  brand: '视觉设计', experience: '产品设计', inspiration: '灵感收集',
+} as const;

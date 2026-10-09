@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <radialGradient id="sky" cx=".65" cy=".38" r=".95"><stop stop-color="#367dc8"/><stop offset=".46" stop-color="#193e81"/><stop offset="1" stop-color="#071830"/></radialGradient>
+    <linearGradient id="silk" x1="0" y1="0" x2=".95" y2="1"><stop stop-color="#b2e2ff"/><stop offset=".24" stop-color="#69b6f7"/><stop offset=".48" stop-color="#2c73d2"/><stop offset=".71" stop-color="#12429a"/><stop offset=".91" stop-color="#76b4f4"/><stop offset="1" stop-color="#1c55a7"/></linearGradient>
+    <linearGradient id="fold" x1=".08" y1=".95" x2=".85" y2=".18"><stop stop-color="#061d4b"/><stop offset=".32" stop-color="#0e3e8c"/><stop offset=".55" stop-color="#2e7dda"/><stop offset=".81" stop-color="#9bd2ff"/><stop offset="1" stop-color="#367bbf"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2=".8"><stop stop-color="#c8ecff"/><stop offset=".3" stop-color="#8dcaff"/><stop offset=".72" stop-color="#4486cc"/><stop offset="1" stop-color="#1b4587"/></linearGradient>
+    <linearGradient id="deep" x1=".2" y1=".8" x2=".9" y2="0"><stop stop-color="#06182e"/><stop offset=".46" stop-color="#174c9b"/><stop offset=".72" stop-color="#5c9be5"/><stop offset="1" stop-color="#a9d5ff"/></linearGradient>
+    <filter id="shade" x="-.3" y="-.3" width="1.6" height="1.6"><feDropShadow dx="-22" dy="48" stdDeviation="38" flood-color="#001227" flood-opacity=".5"/></filter>
+    <filter id="soft"><feGaussianBlur stdDeviation="55"/></filter>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h3840v2160H0z"/>
+  <ellipse fill="#6baefa" opacity=".24" filter="url(#soft)" cx="2930" cy="430" rx="1120" ry="430"/>
+  <g filter="url(#shade)">
+    <path fill="url(#silk)" d="M-440 1800C240 2050 430 780 1140 330S2430-430 3210 210s890 1280 1380 950v1190H-440Z"/>
+    <path fill="url(#fold)" d="M-430 1640C150 1320 620 900 850 650s350-500 690-430c-280 40-400 260-350 540s670 340 770 850c110 560-640 970-1040 660S460 1480-430 2150Z"/>
+    <path fill="url(#edge)" d="M730 2310C-20 1500 940 1530 1300 820s460-670 1020-510c-570-200-670 180-620 500s550 440 550 730-710 190-1520 770Z"/>
+    <path fill="url(#deep)" d="M3840-210c-1060-40-1690 680-1540 1260s-940 730-800 1150h2340Z"/>
+    <path fill="url(#silk)" d="M4100 440c-1020-700-1570-390-1510 170s1200 670 370 1680h1140Z"/>
+    <path fill="url(#fold)" d="M4080 1830c-490-310-670-950-1140-850s-640 950-1630 1330h2770Z"/>
+  </g>
+  <path fill="none" stroke="#d4edff" stroke-opacity=".26" stroke-width="4" d="M-160 1760C360 1760 460 810 1190 370s1140-620 1770-340M730 2220c-690-610 360-670 570-1400M2600 580c-80 460 650 760 480 1390"/>
+</svg>

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-electron/
+release/
+.qa/
+.cursorama/
+projects/
+exports/
+*.log

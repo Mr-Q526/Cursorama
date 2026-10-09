@@ -1,0 +1,20 @@
+import { writeFile } from 'node:fs/promises';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { ApertureIcon } from '@phosphor-icons/react';
+
+const sharpModule = process.argv[2];
+if (!sharpModule) throw new Error('需要提供 sharp 模块路径');
+const { default: sharp } = await import(sharpModule);
+const glyph = renderToStaticMarkup(createElement(ApertureIcon, { size: 340, weight: 'fill', color: '#ffffff' }));
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" rx="120" fill="#191919"/><g transform="translate(86 86)">${glyph}</g></svg>`;
+const png = await sharp(Buffer.from(svg)).png().toBuffer();
+await writeFile('assets/icon.png', png);
+const small = await sharp(png).resize(256, 256).png().toBuffer();
+const header = Buffer.alloc(22);
+header.writeUInt16LE(1, 2); header.writeUInt16LE(1, 4);
+header[6] = 0; header[7] = 0;
+header.writeUInt16LE(1, 10); header.writeUInt16LE(32, 12);
+header.writeUInt32LE(small.length, 14); header.writeUInt32LE(header.length, 18);
+await writeFile('assets/icon.ico', Buffer.concat([header, small]));
+console.info('Cursorama 黑白应用图标已生成。');
