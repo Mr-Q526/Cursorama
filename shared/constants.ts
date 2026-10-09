@@ -2,6 +2,11 @@ import type { AspectRatio, BackgroundId, EffectMode, ExportResolution, VisualSet
 
 export const APP_PORT = 5178;
 export const IPC = {
+  windowGet: 'window:get',
+  windowMinimize: 'window:minimize',
+  windowMaximize: 'window:toggle-maximize',
+  windowClose: 'window:close',
+  windowState: 'window:state',
   sources: 'capture:sources',
   select: 'capture:select',
   pointerStart: 'pointer:start',
@@ -21,6 +26,13 @@ export const IPC = {
   libraryVideo: 'library:video',
   libraryReveal: 'library:reveal',
   reveal: 'file:reveal',
+  updateGet: 'updates:get',
+  updateCheck: 'updates:check',
+  updateDownload: 'updates:download',
+  updateInstall: 'updates:install',
+  updateAutomatic: 'updates:automatic',
+  updatePage: 'updates:page',
+  updateState: 'updates:state',
 } as const;
 
 export const TIME = {

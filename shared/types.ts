@@ -1,3 +1,6 @@
+import type { UpdateState } from './updates';
+import type { DesktopWindowState } from './window';
+
 export type EffectMode = 'focus' | 'cinematic' | 'orbit' | 'overview';
 export type NeutralBackgroundId = 'silver' | 'smoke' | 'graphite' | 'charcoal' | 'ink' | 'paper';
 export type WallpaperId = 'bloom' | 'silk' | 'aurora' | 'dunes';
@@ -161,6 +164,18 @@ export interface StoredProject {
 
 export interface DesktopBridge {
   platform: string;
+  getWindowState(): Promise<DesktopWindowState>;
+  minimizeWindow(): Promise<void>;
+  toggleMaximizeWindow(): Promise<DesktopWindowState>;
+  closeWindow(): Promise<void>;
+  onWindowState(callback: (state: DesktopWindowState) => void): () => void;
+  getUpdateState(): Promise<UpdateState>;
+  checkForUpdates(): Promise<UpdateState>;
+  downloadUpdate(): Promise<UpdateState>;
+  installUpdate(): Promise<UpdateState>;
+  setAutomaticUpdates(enabled: boolean): Promise<UpdateState>;
+  openUpdatePage(): Promise<void>;
+  onUpdateState(callback: (state: UpdateState) => void): () => void;
   listSources(): Promise<CaptureSource[]>;
   selectSource(options: CaptureOptions): Promise<void>;
   startPointer(sourceId: string): Promise<void>;

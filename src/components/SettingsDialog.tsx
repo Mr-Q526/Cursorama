@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { CheckIcon, FolderOpenIcon, MoonIcon, QuestionIcon, SunIcon } from '@phosphor-icons/react';
-import type { AppTheme } from '../hooks';
+import type { AppTheme, UpdateControls } from '../hooks';
 import type { LibrarySnapshot, StorageSettings, StorageTarget } from '../../shared';
 import { chooseLibraryDirectory, revealStorageDirectory } from '../library';
 import { t } from '../i18n';
 import { Modal } from './Controls';
+import { UpdateSettings } from './UpdateSettings';
 
 export interface SettingsDialogProps {
   theme: AppTheme;
@@ -16,6 +17,9 @@ export interface SettingsDialogProps {
   onClose: () => void;
   onRefresh: () => void;
   onGuide: () => void;
+  updates: UpdateControls;
+  onInstallUpdate: () => Promise<void>;
+  installing: boolean;
 }
 
 const THEMES: readonly AppTheme[] = ['light', 'dark'];
@@ -26,7 +30,7 @@ function defaultDirectory(root: string, target: StorageTarget): string {
   return `${root.replace(/[\\/]+$/, '')}${separator}${target}`;
 }
 
-export function SettingsDialog({ theme, library, loading, error, onTheme, onSave, onClose, onRefresh, onGuide }: SettingsDialogProps) {
+export function SettingsDialog({ theme, library, loading, error, onTheme, onSave, onClose, onRefresh, onGuide, updates, onInstallUpdate, installing }: SettingsDialogProps) {
   const copy = t.settings;
   const [draft, setDraft] = useState<StorageSettings>(() => library?.storage ?? { projectDirectory: '', exportDirectory: '' });
   const [saving, setSaving] = useState(false);
@@ -38,7 +42,7 @@ export function SettingsDialog({ theme, library, loading, error, onTheme, onSave
   useEffect(() => {
     if (projectDirectory && exportDirectory) setDraft({ projectDirectory, exportDirectory });
   }, [projectDirectory, exportDirectory]);
-  const busy = saving || choosing;
+  const busy = saving || choosing || installing;
   const changed = draft.projectDirectory !== projectDirectory || draft.exportDirectory !== exportDirectory;
   const update = (key: keyof StorageSettings, value: string): void => { setDraft((current) => ({ ...current, [key]: value })); setMessage(''); setSaved(false); };
   const choose = async (key: keyof StorageSettings, target: StorageTarget): Promise<void> => {
@@ -73,6 +77,7 @@ export function SettingsDialog({ theme, library, loading, error, onTheme, onSave
       {library && <div className="storage-save-row"><button type="button" className="text-button" disabled={busy} onClick={() => { setDraft({ projectDirectory: defaultDirectory(library.root, 'projects'), exportDirectory: defaultDirectory(library.root, 'exports') }); setSaved(false); setMessage(''); }}>{copy.resetDirectories}</button><button type="button" className="primary-button" data-action="save-storage" disabled={busy || !changed || !draft.projectDirectory.trim() || !draft.exportDirectory.trim()} onClick={() => void save()}>{saving ? copy.savingDirectories : copy.saveDirectories}</button></div>}
       {message && <p className="error-message" role="alert">{message}</p>}{saved && <p className="settings-saved" role="status"><CheckIcon size={15} />{copy.savedDirectories}</p>}
     </section>
+    <UpdateSettings updates={updates} onInstall={onInstallUpdate} installing={installing} />
     <div className="settings-footer"><button type="button" className="text-button" onClick={onGuide} disabled={busy}><QuestionIcon size={18} />{t.editor.guide}</button><button type="button" className="soft-button" onClick={onClose} disabled={busy}>{copy.close}</button></div>
   </div></Modal>;
 }

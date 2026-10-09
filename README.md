@@ -5,7 +5,7 @@
   <p>录下屏幕操作，让镜头自动跟上你的思路。</p>
   <p>
     <img src="https://img.shields.io/badge/Windows-桌面录屏-181818?style=flat-square" alt="Windows 桌面录屏">
-    <img src="https://img.shields.io/badge/版本-0.1.0-181818?style=flat-square" alt="版本 0.1.0">
+    <img src="https://img.shields.io/badge/版本-0.1.1-181818?style=flat-square" alt="版本 0.1.1">
     <a href="LICENSE"><img src="https://img.shields.io/badge/许可证-MIT-181818?style=flat-square" alt="MIT 许可证"></a>
   </p>
   <p>
@@ -38,6 +38,7 @@ Cursorama 是一个面向产品演示、操作教程和功能讲解的开源录�
 | 搭配视频外观 | 原创壁纸、黑白灰背景、留白、圆角、阴影和点击涟漪 |
 | 录下画面与声音 | 先确认屏幕或窗口，默认 3 秒倒计时，可选麦克风与系统声音 |
 | 随时继续编辑 | 本地自动保存，独立项目库管理工程与历次成片 |
+| 保持版本更新 | 启动后自动检查 GitHub Release，设置中手动检查、下载并安装 |
 | 导出给观众 | MP4 / WebM，最高 4K，30 / 60 fps，横屏、竖屏或方形 |
 
 预览和导出共用渲染器。采集画面已包含系统鼠标时，保留真实鼠标，避免画面出现第二个光标。
@@ -57,6 +58,8 @@ Cursorama 是一个面向产品演示、操作教程和功能讲解的开源录�
 
 主题和存储位置统一放在左下角齿轮设置弹窗中。启动时进入空编辑器；左下角问号按钮可以打开独立运镜演示。
 
+桌面版使用自有顶部栏：拖动顶部空白区域移动窗口，双击最大化／还原，右上角控制最小化和关闭。设置弹窗打开时也能操作窗口。
+
 <details>
 <summary>查看设置弹窗与本地项目库</summary>
 
@@ -74,7 +77,9 @@ Cursorama 是一个面向产品演示、操作教程和功能讲解的开源录�
 
 ## 快速开始
 
-从 [GitHub Releases](https://github.com/Mr-Q526/Cursorama/releases/latest) 下载 **Windows x64 压缩包**，完整解压到有写入权限的目录，运行其中的 `Cursorama.exe`。桌面运行环境和视频编码器已包含在压缩包中。
+从 [GitHub Releases](https://github.com/Mr-Q526/Cursorama/releases/latest) 下载 **Windows x64 Setup 安装包**，运行 `Cursorama-Setup-版本号-x64.exe`，选择安装目录后启动。桌面运行环境和视频编码器已包含在安装包中，安装和后续更新会保留工程、成片及保存位置设置。
+
+**软件更新**：在设置弹窗的「软件更新」中手动检查、下载，下载完成后点击「重启并安装」。默认启动后自动检查，使用期间每 4 小时检查一次；可以关闭自动检查。安装前会保存当前工程，录制和导出期间不执行安装。旧版 `0.1.0` 需先手动安装本版，之后即可使用内置更新。
 
 完整录制与跨应用鼠标追踪请使用 **Windows 桌面版**。也可以从源码运行，需要 Git、**Node.js 22.12 或更新版本**与 npm：
 
@@ -121,6 +126,7 @@ npm run dev
 npm test          # 单元测试
 npm run build     # 类型检查与构建
 npm run smoke     # Windows 桌面录制、恢复与导出集成验证
+npm run test:updates # 先生成安装包，再验证下载校验、窗口控制与安装触发
 ```
 
 项目结构与验证说明见 [使用指南](docs/使用指南.md#开发与验证)，协作约定见 [AGENTS.md](AGENTS.md)。欢迎通过 [Issues](https://github.com/Mr-Q526/Cursorama/issues) 提交问题或建议，通过 Pull Request 贡献改进。

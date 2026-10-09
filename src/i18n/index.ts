@@ -7,6 +7,8 @@ import { libraryCatalog } from './library';
 import { backgroundCatalog } from './background';
 import { navigationCatalog } from './navigation';
 import { settingsCatalog } from './settings';
+import { updatesCatalog } from './updates';
+import { windowCatalog } from './window';
 
 export { editorCatalog, demoCatalog, exportCatalog, recordingCatalog, appearanceCatalog };
 export * from './library';
@@ -14,7 +16,9 @@ export { backgroundCatalog };
 export type { BackgroundCatalog } from './background';
 export * from './navigation';
 export * from './settings';
-export const t = { editor: editorCatalog, demo: demoCatalog, export: exportCatalog, recording: recordingCatalog, appearance: appearanceCatalog, library: libraryCatalog, background: backgroundCatalog, navigation: navigationCatalog, settings: settingsCatalog };
+export * from './updates';
+export * from './window';
+export const t = { editor: editorCatalog, demo: demoCatalog, export: exportCatalog, recording: recordingCatalog, appearance: appearanceCatalog, library: libraryCatalog, background: backgroundCatalog, navigation: navigationCatalog, settings: settingsCatalog, updates: updatesCatalog, window: windowCatalog };
 export const formatTime = (seconds: number): string => {
   const safeSeconds = Math.max(0, seconds);
   return `${Math.floor(safeSeconds / 60).toString().padStart(2, '0')}:${Math.floor(safeSeconds % 60).toString().padStart(2, '0')}`;

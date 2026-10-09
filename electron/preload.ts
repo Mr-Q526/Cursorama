@@ -4,6 +4,24 @@ import type { CaptureOptions, DesktopBridge, ExportRequest, NativePointer, Proje
 
 export const bridge: DesktopBridge = {
   platform: process.platform,
+  getWindowState: () => ipcRenderer.invoke(IPC.windowGet),
+  minimizeWindow: () => ipcRenderer.invoke(IPC.windowMinimize),
+  toggleMaximizeWindow: () => ipcRenderer.invoke(IPC.windowMaximize),
+  closeWindow: () => ipcRenderer.invoke(IPC.windowClose),
+  onWindowState: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: Awaited<ReturnType<DesktopBridge['getWindowState']>>): void => callback(state);
+    ipcRenderer.on(IPC.windowState, handler); return () => ipcRenderer.removeListener(IPC.windowState, handler);
+  },
+  getUpdateState: () => ipcRenderer.invoke(IPC.updateGet),
+  checkForUpdates: () => ipcRenderer.invoke(IPC.updateCheck),
+  downloadUpdate: () => ipcRenderer.invoke(IPC.updateDownload),
+  installUpdate: () => ipcRenderer.invoke(IPC.updateInstall),
+  setAutomaticUpdates: (enabled) => ipcRenderer.invoke(IPC.updateAutomatic, enabled),
+  openUpdatePage: () => ipcRenderer.invoke(IPC.updatePage),
+  onUpdateState: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: Awaited<ReturnType<DesktopBridge['getUpdateState']>>): void => callback(state);
+    ipcRenderer.on(IPC.updateState, handler); return () => ipcRenderer.removeListener(IPC.updateState, handler);
+  },
   listSources: () => ipcRenderer.invoke(IPC.sources),
   selectSource: (options: CaptureOptions) => ipcRenderer.invoke(IPC.select, options),
   startPointer: (sourceId: string) => ipcRenderer.invoke(IPC.pointerStart, sourceId),

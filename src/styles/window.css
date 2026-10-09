@@ -1,0 +1,12 @@
+.desktop-window .app-header { position: relative; z-index: 60; padding-right: 0; -webkit-app-region: drag; app-region: drag; user-select: none; }
+.desktop-window .library-brand { -webkit-app-region: drag; app-region: drag; user-select: none; }
+.desktop-window .header-actions, .window-controls { -webkit-app-region: no-drag; app-region: no-drag; }
+.window-controls { display: flex; align-self: stretch; flex-shrink: 0; margin-left: 1px; border-left: 1px solid var(--line); }
+.window-control { display: grid; place-items: center; width: 46px; height: 100%; background: transparent; color: var(--text-secondary); border-radius: 0; }
+.window-control:hover { background: var(--tone-95); color: var(--text-primary); }
+.window-control.window-close:hover { background: var(--text-primary); color: var(--panel-background); }
+.window-control:active:not(:disabled) { transform: none; }
+.window-control:focus-visible { outline-offset: -5px; }
+.desktop-window .modal-backdrop, .desktop-window .countdown-overlay { top: var(--app-header-height); }
+.desktop-window .modal { max-height: calc(100dvh - var(--app-header-height) - 60px); }
+.desktop-window .recording-overlay, .desktop-window .processing-overlay { top: var(--app-header-height); }

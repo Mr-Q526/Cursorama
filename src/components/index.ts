@@ -10,3 +10,5 @@ export * from './ExportPreview';
 export * from './BackgroundPicker';
 export * from './LibraryPage';
 export * from './SettingsDialog';
+export * from './UpdateSettings';
+export * from './WindowControls';

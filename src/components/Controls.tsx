@@ -31,7 +31,7 @@ export function Modal({ title, subtitle, children, onClose, wide = false, closeD
   useEffect(() => {
     const panel = root.current;
     const previous = document.activeElement;
-    const background = Array.from(document.querySelectorAll<HTMLElement>('.app-main, .library-sidebar')).map((element) => ({ element, inert: element.inert }));
+    const background = Array.from(document.querySelectorAll<HTMLElement>('.app-main, .library-sidebar, .header-actions')).map((element) => ({ element, inert: element.inert }));
     background.forEach(({ element }) => { element.inert = true; });
     const controls = (): HTMLElement[] => Array.from(panel?.querySelectorAll<HTMLElement>(FOCUSABLE_CONTROLS) ?? []).filter((element) => element.getClientRects().length > 0);
     (controls()[0] ?? panel)?.focus();

@@ -5,8 +5,8 @@ import type { EditorTab, EffectMode, ExportResult, LibraryProject, LibrarySnapsh
 import { AUTOSAVE_DELAY, DEFAULT_SETTINGS, PRESETS, PROJECT_EXTENSION, projectBytes, readProjectBytes, TIME } from '../shared';
 import { createDemoProject, downloadBlob, generateClips, loadVideo, startRecording } from './engine';
 import type { PreparedRecording, RecordingSession } from './engine';
-import { useAppPage, usePlayback, useTheme } from './hooks';
-import { EmptyWorkspace, ExportDialog, ExportPreview, IconButton, Inspector, LibraryPage, LibrarySidebar, Modal, Preview, RecordDialog, SettingsDialog, Timeline } from './components';
+import { useAppPage, usePlayback, useTheme, useUpdates } from './hooks';
+import { EmptyWorkspace, ExportDialog, ExportPreview, IconButton, Inspector, LibraryPage, LibrarySidebar, Modal, Preview, RecordDialog, SettingsDialog, Timeline, UpdateNotice, WindowControls } from './components';
 import { configureLibrary, hasLocalLibrary, listLibrary, openLibraryProject, openLibraryVideo, revealLibrary, saveLibraryProject } from './library';
 import type { LibraryVideoSource } from './library';
 import { formatTime, t } from './i18n';
@@ -29,6 +29,8 @@ function restoredProject(value: StoredProject): Project {
 }
 
 export function App() {
+  const updates = useUpdates();
+  const [preparingUpdate, setPreparingUpdate] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
   const [projectId, setProjectId] = useState<string>();
   const [dirty, setDirty] = useState(false);
@@ -62,7 +64,7 @@ export function App() {
   const { theme, setTheme } = useTheme();
   const { page, navigate } = useAppPage();
   const copy = t.editor;
-  const busy = recording || processing || loading || saving || storageBusy || countdown !== null;
+  const busy = recording || processing || loading || saving || storageBusy || countdown !== null || preparingUpdate || updates.state.status === 'installing';
   const notify = useCallback((message: string) => setToast(message), []);
 
   const refreshLibrary = useCallback(async (): Promise<void> => {
@@ -279,11 +281,18 @@ export function App() {
     } finally { countdownAbort.current = null; setCountdown(null); }
   };
   const record = (): void => { playback.pause(); navigate('workspace'); setVideoSelection(null); setDialog('record'); };
+  const installUpdate = async (): Promise<void> => {
+    if (busy) return;
+    setPreparingUpdate(true); playback.pause();
+    try { await ensureSaved(); await updates.install(); }
+    catch (error) { console.error('UPDATE_PROJECT_SAVE_FAILED', error); notify(t.library.saveFailed); }
+    finally { setPreparingUpdate(false); }
+  };
 
-  return <div className="app-shell">
+  return <div className={`app-shell${window.desktop ? ' desktop-window' : ''}`}>
     <LibrarySidebar page={page} disabled={busy} settingsOpen={dialog === 'settings'} onNavigate={navigate} onSettings={() => { playback.pause(); setDialog('settings'); void refreshLibrary(); }} onOpen={() => void open()} onImport={() => videoInput.current?.click()} onDemo={() => void changeWorkspace(createDemoProject())} />
+    <header className="app-header"><div className="brand-text"><strong>{page === 'workspace' ? copy.studio : t.navigation[page]}</strong></div><div className="header-actions">{page !== 'workspace' && <button type="button" className="text-button" onClick={() => navigate('workspace')} disabled={busy}><ArrowLeftIcon size={16} />{t.navigation.back}</button>}<button type="button" className="soft-button" onClick={record} disabled={busy}><RecordIcon size={17} weight="fill" />{copy.newRecording}</button>{page === 'workspace' && <button type="button" className="primary-button" onClick={() => { playback.pause(); setDialog('export'); }} disabled={!project || Boolean(videoSelection) || busy}><DownloadSimpleIcon size={17} />{copy.exportVideo}</button>}</div><WindowControls /></header>
     <div className="app-main" data-page={page}>
-      <header className="app-header"><div className="brand-text"><strong>{page === 'workspace' ? copy.studio : t.navigation[page]}</strong></div><div className="header-actions">{page !== 'workspace' && <button type="button" className="text-button" onClick={() => navigate('workspace')} disabled={busy}><ArrowLeftIcon size={16} />{t.navigation.back}</button>}<button type="button" className="soft-button" onClick={record} disabled={busy}><RecordIcon size={17} weight="fill" />{copy.newRecording}</button>{page === 'workspace' && <button type="button" className="primary-button" onClick={() => { playback.pause(); setDialog('export'); }} disabled={!project || Boolean(videoSelection) || busy}><DownloadSimpleIcon size={17} />{copy.exportVideo}</button>}</div></header>
       {page === 'library' ? <LibraryPage library={library} error={libraryError} loading={libraryLoading} disabled={busy} projectId={videoSelection?.projectId ?? projectId} videoId={videoSelection?.video.id} onProject={(item) => void openStored(item)} onVideo={(item, video) => void openStored(item, video)} onRefresh={() => void refreshLibrary()} onRecord={record} onImport={() => videoInput.current?.click()} /> : videoSelection ? <ExportPreview video={videoSelection.video} url={videoSelection.source.url} onBack={() => setVideoSelection(null)} onReveal={() => void reveal(videoSelection.projectId, videoSelection.video.id)} onError={() => notify(t.library.videoFailed)} /> : project ? <>
         <div className="project-bar" data-project-id={projectId}><div className="project-title"><span className="project-icon"><MonitorPlayIcon size={20} /></span><div><input aria-label={t.appearance.projectName} className="project-name" value={project.name} maxLength={120} onChange={(event) => { const name = event.currentTarget.value; updateProject((current) => ({ ...current, name })); }} /><div className="project-details"><span>{formatTime(project.duration)}</span><span>·</span><span>{project.width} × {project.height}</span><span>·</span><span>{project.sourceType === 'demo' ? copy.demoBadge : t.library.autoSave}</span></div></div></div><div className="project-tools"><span className="save-status">{dirty || saving ? <CircleIcon size={7} weight="fill" /> : <CheckIcon size={13} />}{saving ? t.library.saving : dirty ? copy.unsaved : t.library.saved}</span>{project.sourceType === 'demo' && <button type="button" className="text-button" data-action="close-demo" disabled={busy} onClick={() => void changeWorkspace(null)}>{t.library.closeDemo}</button>}<button className="text-button" type="button" onClick={() => void save()} disabled={busy}><FloppyDiskIcon size={17} />{copy.saveProject}</button></div></div>
         <div className="editor-layout"><main className="editor-center"><Preview project={project} playback={playback} original={original} onOriginal={setOriginal} onFocus={focusAt} /><Timeline project={project} time={playback.time} selectedId={selectedId} onSeek={playback.seek} onSelect={(id) => { setSelectedId(id); setTab('motion'); }} onAdd={() => addShot()} onRegenerate={() => { updateProject((current) => ({ ...current, clips: [...generateClips(current.samples, current.duration, current.settings.mode, current.settings.zoom), ...current.clips.filter((clip) => clip.manual)].sort((first, second) => first.start - second.start) })); setSelectedId(undefined); notify(copy.regenerateSuccess); }} /></main><Inspector project={project} tab={tab} onTab={setTab} onSettings={settingsChanged} onPreset={presetChanged} selectedClip={project.clips.find((clip) => clip.id === selectedId)} onClip={clipChanged} onDeleteClip={(id) => { updateProject((current) => ({ ...current, clips: current.clips.filter((clip) => clip.id !== id) })); setSelectedId(undefined); }} onTrim={(trimStart, trimEnd) => updateProject((current) => ({ ...current, trimStart, trimEnd }))} /></div>
@@ -291,7 +300,8 @@ export function App() {
     </div>
     <input type="file" className="visually-hidden" ref={videoInput} accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onChange={(event) => void importVideo(event)} /><input type="file" className="visually-hidden" ref={projectInput} accept={`.${PROJECT_EXTENSION}`} onChange={(event) => void importProject(event)} />
     {dialog === 'record' && <RecordDialog onClose={() => setDialog(null)} onStart={beginRecording} />}
-    {dialog === 'settings' && <SettingsDialog theme={theme} onTheme={setTheme} library={library} loading={libraryLoading} error={libraryError} onSave={configureStorage} onClose={() => setDialog(null)} onRefresh={() => void refreshLibrary()} onGuide={() => setDialog('guide')} />}
+    {dialog === 'settings' && <SettingsDialog theme={theme} onTheme={setTheme} library={library} loading={libraryLoading} error={libraryError} onSave={configureStorage} onClose={() => setDialog(null)} onRefresh={() => void refreshLibrary()} onGuide={() => setDialog('guide')} updates={updates} onInstallUpdate={installUpdate} installing={preparingUpdate || updates.state.status === 'installing'} />}
+    {!busy && !dialog && <UpdateNotice state={updates.state} onOpen={() => { playback.pause(); setDialog('settings'); void refreshLibrary(); }} />}
     {dialog === 'export' && project && <ExportDialog project={project} ensureSaved={ensureSaved} onComplete={() => void refreshLibrary()} onClose={() => setDialog(null)} />}
     {dialog === 'guide' && <Modal title={copy.guideTitle} onClose={() => setDialog(null)}><div className="guide-steps">{copy.guideSteps.map(([title, description], index) => <div key={title}><span>{index + 1}</span><div><h3>{title}</h3><p>{description}</p></div></div>)}</div><p className="guide-note"><SparkleIcon size={19} />{copy.guideNote}</p>{!window.desktop && <p className="field-hint">{copy.browserHint}</p>}</Modal>}
     {recording && <div className="recording-overlay"><div className="recording-orbit"><RecordIcon size={33} weight="fill" /></div><h2>{t.recording.recording}</h2><strong className="recording-clock">{formatTime(recordingElapsed)}</strong><p>{t.recording.statusHint}</p><button className="primary-button" type="button" onClick={() => void stopRecording()}><StopIcon size={17} weight="fill" />{t.recording.stop}</button><small>{t.recording.shortcut}</small></div>}
