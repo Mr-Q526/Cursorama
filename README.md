@@ -5,7 +5,7 @@
   <p>录下屏幕操作，让镜头自动跟上你的思路。</p>
   <p>
     <img src="https://img.shields.io/badge/Windows-桌面录屏-181818?style=flat-square" alt="Windows 桌面录屏">
-    <img src="https://img.shields.io/badge/版本-0.3.0-181818?style=flat-square" alt="版本 0.3.0">
+    <img src="https://img.shields.io/badge/版本-0.3.1-181818?style=flat-square" alt="版本 0.3.1">
     <a href="LICENSE"><img src="https://img.shields.io/badge/许可证-MIT-181818?style=flat-square" alt="MIT 许可证"></a>
   </p>
   <p>
