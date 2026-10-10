@@ -78,7 +78,7 @@ export async function renderExport(project: Project, options: ExportOptions, onP
   const duration = exportEnd - project.trimStart;
   const chunks: Blob[] = [];
   try {
-    await prepareBackground(project.settings.background);
+    await prepareBackground(project.settings.background, project.backgroundImageAsset);
     media = await TimelineMediaController.create(project, 'export', signal);
     await media.seek(project, project.trimStart, signal);
     if (signal.aborted) throw new DOMException(t.export.cancelled, 'AbortError');
@@ -97,7 +97,7 @@ export async function renderExport(project: Project, options: ExportOptions, onP
       signal.addEventListener('abort', aborted, { once: true });
       void preview.play().catch(failed);
     });
-    await media.prepareAudio(project);
+    await media.prepareAudio(project, signal);
     media.audioStream?.getAudioTracks().forEach((track) => stream?.addTrack(track));
     const mimeType = MEDIA_MIME.find((candidate) => MediaRecorder.isTypeSupported(candidate));
     if (!mimeType) throw new Error('MEDIA_RECORDER_UNAVAILABLE');

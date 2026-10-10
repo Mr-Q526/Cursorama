@@ -147,9 +147,9 @@ export class VideoRenderer {
     if (mapping.sourceType === 'demo') {
       drawDemo(this.demoContext, mapping.sourceTime); input = this.demoCanvas;
     } else if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) input = video;
-    else { this.drawBackground(settings); drawSubtitles(this.output, project.editing?.subtitles ?? [], time, this.canvas.width, this.canvas.height); return camera; }
-    this.drawBackground(settings);
-    const backdropChanged = this.glass.prepare(this.canvas, settings);
+    else { this.drawBackground(project); drawSubtitles(this.output, project.editing?.subtitles ?? [], time, this.canvas.width, this.canvas.height); return camera; }
+    this.drawBackground(project);
+    const backdropChanged = this.glass.prepare(this.canvas, settings, project.backgroundImageAsset);
     const { width, height } = this.canvas;
     const { width: frameWidth, height: frameHeight } = frameGeometry(width, height, mapping.width, mapping.height, settings.padding);
     const material = frameMaterial(settings, width, frameWidth, frameHeight);
@@ -182,9 +182,9 @@ export class VideoRenderer {
     return camera;
   }
 
-  private drawBackground(settings: VisualSettings): void {
+  private drawBackground(project: Project): void {
     const { width, height } = this.canvas;
-    this.background.render(this.output, width, height, settings);
+    this.background.render(this.output, width, height, project.settings, project.backgroundImageAsset);
   }
 
   private drawGL(camera: CameraState, material: FrameMaterial, frameWidth: number, frameHeight: number, backdropChanged: boolean): void {

@@ -1,24 +1,42 @@
 import type { UpdateState } from './updates';
+import type { AboutLink } from './about';
 import type { DesktopWindowState } from './window';
 import type { RecordingCommand, RecordingOverlayState, RecordingProgress } from './recording';
 
 export type EffectMode = 'focus' | 'cinematic' | 'orbit' | 'overview';
 export type NeutralBackgroundId = 'silver' | 'smoke' | 'graphite' | 'charcoal' | 'ink' | 'paper';
-export type WallpaperId = 'bloom' | 'silk' | 'aurora' | 'dunes' | 'cobalt' | 'prism' | 'coast' | 'sunrise' | 'pearl' | 'slate' | 'mist' | 'midnight';
-export type BackgroundId = NeutralBackgroundId | WallpaperId;
+export type WallpaperId = 'bloom' | 'silk' | 'aurora' | 'dunes' | 'cobalt' | 'prism' | 'coast' | 'sunrise' | 'pearl' | 'slate' | 'mist' | 'midnight' | 'ripple' | 'opal' | 'mesh' | 'frosted' | 'alpine' | 'twilight' | 'lavender' | 'shore' | 'mono' | 'linen' | 'eclipse' | 'horizon';
+export type BackgroundId = NeutralBackgroundId | WallpaperId | 'custom';
 export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:3';
 export type CursorStyle = 'arrow' | 'dot' | 'none';
 export type ExportResolution = '720p' | '1080p' | '1440p' | '2160p';
 export type ExportFormat = 'mp4' | 'webm';
 export type ExportFps = 30 | 60;
-export type EditorTab = 'motion' | 'cursor' | 'background' | 'canvas' | 'edit';
+export type EditorTab = 'motion' | 'cursor' | 'background' | 'canvas' | 'edit' | 'audio';
+export type PointerKind = 'move' | 'click' | 'typing' | 'scroll' | 'drag';
+export type FocusSoundId = 'soft-tap' | 'air-sweep' | 'glass-chime' | 'gentle-pop';
+
+export interface FocusSoundSettings {
+  enabled: boolean;
+  id: FocusSoundId;
+  volume: number;
+}
+
+export interface FocusRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  source: 'caret' | 'control';
+}
 
 export interface PointerSample {
   time: number;
   x: number;
   y: number;
-  kind: 'move' | 'click';
+  kind: PointerKind;
   button?: 'left' | 'right';
+  focus?: FocusRegion;
 }
 
 export interface MotionClip {
@@ -52,6 +70,7 @@ export interface VisualSettings {
   cursorSize: number;
   clickEffect: boolean;
   spotlight: boolean;
+  focusSound?: FocusSoundSettings;
 }
 
 export interface MediaAssetData {
@@ -63,6 +82,21 @@ export interface MediaAssetData {
   width?: number;
   height?: number;
   hasAudio?: boolean;
+}
+
+export type BackgroundImageMimeType = 'image/png' | 'image/jpeg' | 'image/webp';
+
+export interface BackgroundImageData {
+  id: string;
+  name: string;
+  mimeType: BackgroundImageMimeType;
+  width: number;
+  height: number;
+}
+
+export interface BackgroundImageAsset extends BackgroundImageData {
+  url: string;
+  blob: Blob;
 }
 
 export interface MediaAsset extends MediaAssetData {
@@ -105,6 +139,7 @@ export interface ProjectData {
   schemaVersion: 1;
   name: string;
   duration: number;
+  frameRate?: number;
   width: number;
   height: number;
   samples: PointerSample[];
@@ -118,12 +153,14 @@ export interface ProjectData {
   libraryCover?: string;
   editing?: EditingTimeline;
   mediaAssets?: MediaAssetData[];
+  backgroundImage?: BackgroundImageData;
 }
 
 export interface Project extends ProjectData {
   videoUrl?: string;
   videoBlob?: Blob;
   media?: Record<string, MediaAsset>;
+  backgroundImageAsset?: BackgroundImageAsset;
   hasAudio: boolean;
 }
 
@@ -146,8 +183,9 @@ export interface NativePointer {
   x: number;
   y: number;
   timestamp: number;
-  kind: 'move' | 'click';
+  kind: PointerKind;
   button?: 'left' | 'right';
+  focus?: FocusRegion;
   inside: boolean;
 }
 
@@ -230,6 +268,7 @@ export interface DesktopBridge {
   installUpdate(): Promise<UpdateState>;
   setAutomaticUpdates(enabled: boolean): Promise<UpdateState>;
   openUpdatePage(): Promise<void>;
+  openAboutLink(target: AboutLink): Promise<void>;
   onUpdateState(callback: (state: UpdateState) => void): () => void;
   listSources(): Promise<CaptureSource[]>;
   selectSource(options: CaptureOptions): Promise<void>;

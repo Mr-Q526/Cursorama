@@ -1,8 +1,11 @@
 import { ASPECTS, BACKGROUNDS, BACKGROUND_LIMITS, DEFAULT_SETTINGS, FRAME_LIMITS, PRESETS } from './constants';
 import { isLibraryCover } from './covers';
+import { parseBackgroundImage } from './background-image';
 import { parseEditingTimeline, parseMediaAssets, timelineDuration } from './editing';
 import { validateProjectMediaPayload } from './media-package';
-import type { MotionClip, PointerSample, ProjectData } from './types';
+import { PLAYBACK_FRAMES } from './playback';
+import { parseFocusSound } from './focus-sound';
+import type { FocusRegion, MotionClip, PointerSample, ProjectData } from './types';
 
 export const PROJECT_MAGIC = 'CURSOR01';
 export const PROJECT_HEADER_SIZE = 12;
@@ -12,9 +15,17 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const inRange = (value: unknown, min: number, max: number): value is number => finite(value) && value >= min && value <= max;
 
+function isFocusRegion(value: unknown): value is FocusRegion {
+  return isRecord(value) && inRange(value.x, 0, 1) && inRange(value.y, 0, 1) &&
+    inRange(value.width, 0, 1) && inRange(value.height, 0, 1) && (value.source === 'caret' || value.source === 'control');
+}
+
 function isPointer(value: unknown): value is PointerSample {
   if (!isRecord(value)) return false;
-  return inRange(value.time, 0, Number.MAX_SAFE_INTEGER) && inRange(value.x, 0, 1) && inRange(value.y, 0, 1) && (value.kind === 'move' || value.kind === 'click');
+  return inRange(value.time, 0, Number.MAX_SAFE_INTEGER) && inRange(value.x, 0, 1) && inRange(value.y, 0, 1) &&
+    ['move', 'click', 'typing', 'scroll', 'drag'].includes(String(value.kind)) &&
+    (value.button === undefined || value.button === 'left' || value.button === 'right') &&
+    (value.focus === undefined || isFocusRegion(value.focus));
 }
 
 function isClip(value: unknown): value is MotionClip {
@@ -30,11 +41,16 @@ export function parseProject(value: unknown): ProjectData {
     !Array.isArray(value.clips) || !value.clips.every(isClip) || !isRecord(value.settings) ||
     (value.sourceType !== 'demo' && value.sourceType !== 'video')) throw new Error('INVALID_PROJECT');
   const mediaAssets = parseMediaAssets(value.mediaAssets);
+  const backgroundImage = parseBackgroundImage(value.backgroundImage);
+  if (backgroundImage && mediaAssets?.some((asset) => asset.id === backgroundImage.id)) throw new Error('INVALID_BACKGROUND_IMAGE');
   const editing = parseEditingTimeline(value.editing, mediaAssets, value.duration);
   const duration = timelineDuration({ duration: value.duration, editing });
   if (!inRange(value.trimStart, 0, duration) || !inRange(value.trimEnd, 0, duration) || value.trimEnd <= value.trimStart) throw new Error('INVALID_PROJECT');
   if (value.libraryCover !== undefined && !isLibraryCover(value.libraryCover)) throw new Error('INVALID_LIBRARY_COVER');
   const settings = value.settings;
+  const focusSound = parseFocusSound(settings.focusSound);
+  if (settings.background === 'custom' && !backgroundImage) throw new Error('MISSING_BACKGROUND_IMAGE');
+  if (value.frameRate !== undefined && !inRange(value.frameRate, PLAYBACK_FRAMES.minimumRate, PLAYBACK_FRAMES.maximumRate)) throw new Error('INVALID_FRAME_RATE');
   if (value.cursorEmbedded !== undefined && typeof value.cursorEmbedded !== 'boolean') throw new Error('INVALID_CURSOR_SOURCE');
   if (typeof settings.mode !== 'string' || !(settings.mode in PRESETS) || typeof settings.background !== 'string' || !(settings.background in BACKGROUNDS) ||
     typeof settings.aspect !== 'string' || !(settings.aspect in ASPECTS) || !['arrow', 'dot', 'none'].includes(String(settings.cursor))) throw new Error('INVALID_SETTINGS');
@@ -50,13 +66,15 @@ export function parseProject(value: unknown): ProjectData {
   return {
     schemaVersion: 1, name: value.name.slice(0, 200), duration: value.duration,
     width: value.width, height: value.height, samples: value.samples, clips: value.clips,
-    settings: { ...DEFAULT_SETTINGS, ...settings, edgeGlass: settings.edgeGlass ?? DEFAULT_SETTINGS.edgeGlass } as ProjectData['settings'],
+    settings: { ...DEFAULT_SETTINGS, ...settings, edgeGlass: settings.edgeGlass ?? DEFAULT_SETTINGS.edgeGlass, ...(focusSound ? { focusSound } : {}) } as ProjectData['settings'],
     trimStart: value.trimStart, trimEnd: value.trimEnd,
     sourceType: value.sourceType, hasAudio: value.hasAudio === true,
+    ...(value.frameRate !== undefined ? { frameRate: value.frameRate } : {}),
     cursorEmbedded: value.cursorEmbedded ?? value.sourceType === 'video',
     ...(value.libraryCover !== undefined ? { libraryCover: value.libraryCover } : {}),
     ...(editing !== undefined ? { editing } : {}),
     ...(mediaAssets !== undefined ? { mediaAssets } : {}),
+    ...(backgroundImage !== undefined ? { backgroundImage } : {}),
   };
 }
 

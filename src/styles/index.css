@@ -5,9 +5,14 @@
 @import './library.css';
 @import './backgrounds.css';
 @import './pages.css';
+@import './settings.css';
+@import './about.css';
 @import './playback.css';
 @import './recording-controls.css';
 @import './editing.css';
+@import './studio.css';
+@import './soundtracks.css';
+@import './focus-sounds.css';
 
 :root {
   font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
@@ -54,7 +59,7 @@ select { cursor: pointer; }
 .app-main { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .app-header { grid-column: 1 / -1; grid-row: 1; height: var(--app-header-height); padding: 0 16px 0 0; display: flex; align-items: center; gap: 18px; border-bottom: 1px solid var(--line); background: var(--panel-background); }
 .header-brand { width: var(--library-width); height: 100%; padding: 0 22px; display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
-.header-brand .brand-mark { width: 29px; height: 29px; border-radius: 8px; }
+.header-brand .brand-mark { width: 29px; height: 29px; border-radius: 0; background: transparent; color: var(--text-primary); }
 .header-brand strong { color: var(--text-primary); font-size: 16px; font-weight: 650; letter-spacing: -.45px; }
 .header-context { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; font-size: 12px; color: var(--text-secondary); }
 .header-context > svg { flex-shrink: 0; color: var(--text-tertiary); }

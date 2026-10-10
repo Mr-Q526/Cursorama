@@ -18,6 +18,7 @@ export const bridge: DesktopBridge = {
   installUpdate: () => ipcRenderer.invoke(IPC.updateInstall),
   setAutomaticUpdates: (enabled) => ipcRenderer.invoke(IPC.updateAutomatic, enabled),
   openUpdatePage: () => ipcRenderer.invoke(IPC.updatePage),
+  openAboutLink: (target) => ipcRenderer.invoke(IPC.aboutLink, target),
   onUpdateState: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, state: Awaited<ReturnType<DesktopBridge['getUpdateState']>>): void => callback(state);
     ipcRenderer.on(IPC.updateState, handler); return () => ipcRenderer.removeListener(IPC.updateState, handler);

@@ -21,14 +21,14 @@ class CaptureStream {
   getAudioTracks = () => [];
 }
 
-class CaptureRecorder {
+class CaptureRecorder extends EventTarget {
   static instances: CaptureRecorder[] = [];
   static isTypeSupported = () => true;
-  constructor(readonly stream: CaptureStream, readonly options: MediaRecorderOptions) { CaptureRecorder.instances.push(this); }
+  constructor(readonly stream: CaptureStream, readonly options: MediaRecorderOptions) { super(); CaptureRecorder.instances.push(this); }
   state: RecordingState = 'inactive';
   onstop?: () => void;
   ondataavailable?: (event: { data: Blob }) => void;
-  start = () => { this.state = 'recording'; };
+  start = () => { this.state = 'recording'; queueMicrotask(() => this.dispatchEvent(new Event('start'))); };
   pause = () => { this.state = 'paused'; };
   resume = () => { this.state = 'recording'; };
   stop = () => {
@@ -72,6 +72,7 @@ describe('录制清晰度与光标回归', () => {
     expect(options?.video).not.toHaveProperty('height');
     const project = await active.stop();
     expect([project.width, project.height]).toEqual([SOURCE_SIZE.width, SOURCE_SIZE.height]);
+    expect(project.frameRate).toBe(CAPTURE.fps);
     URL.revokeObjectURL(project.videoUrl ?? '');
   });
 
@@ -80,6 +81,15 @@ describe('录制清晰度与光标回归', () => {
     const active = await recordImmediately();
     const project = await active.stop();
     expect(project.settings.cursor).toBe('none');
+    URL.revokeObjectURL(project.videoUrl ?? '');
+  });
+
+  it('60 帧录制保留采集帧率，重新打开后用于逐帧定位', async () => {
+    const capture = installCapture();
+    vi.spyOn(capture.track, 'getSettings').mockReturnValue({ ...SOURCE_SIZE, frameRate: 60, cursor: 'always' });
+    const active = await startRecording(await prepareRecording({ ...CAPTURE, fps: 60 }), 0, () => undefined, () => undefined, new AbortController().signal);
+    const project = await active.stop();
+    expect(project.frameRate).toBe(60);
     URL.revokeObjectURL(project.videoUrl ?? '');
   });
 
@@ -116,6 +126,35 @@ describe('录制清晰度与光标回归', () => {
 });
 
 describe('选择来源、倒计时与取消', () => {
+  it('编码器真正就绪后才返回录制会话并开始计时', async () => {
+    vi.useFakeTimers(); installCapture();
+    class DeferredRecorder extends CaptureRecorder { override start = () => { this.state = 'recording'; }; }
+    vi.stubGlobal('MediaRecorder', DeferredRecorder);
+    let ready = false; const pending = recordImmediately().then((active) => { ready = true; return active; });
+    await vi.waitFor(() => expect(CaptureRecorder.instances).toHaveLength(1));
+    await vi.advanceTimersByTimeAsync(5000); expect(ready).toBe(false);
+    CaptureRecorder.instances[0].dispatchEvent(new Event('start'));
+    const active = await pending; expect(active.elapsed).toBe(0);
+    await vi.advanceTimersByTimeAsync(1000); const project = await active.stop();
+    expect(project.duration).toBeCloseTo(1); URL.revokeObjectURL(project.videoUrl ?? '');
+  });
+  it('编码器等待期间取消会释放来源和录制器', async () => {
+    vi.useFakeTimers(); const capture = installCapture();
+    class DeferredRecorder extends CaptureRecorder { override start = () => { this.state = 'recording'; }; }
+    vi.stubGlobal('MediaRecorder', DeferredRecorder);
+    const prepared = await prepareRecording(CAPTURE); const abort = new AbortController();
+    const pending = startRecording(prepared, 0, () => undefined, () => undefined, abort.signal);
+    const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(CaptureRecorder.instances).toHaveLength(1)); abort.abort(); await rejected;
+    expect(capture.track.readyState).toBe('ended'); expect(CaptureRecorder.instances[0].state).toBe('inactive');
+  });
+  it('录制器没有输出画面时拒绝创建空工程，同时释放资源', async () => {
+    const capture = installCapture(); const active = await recordImmediately();
+    const recorder = CaptureRecorder.instances[0];
+    recorder.stop = () => { recorder.state = 'inactive'; recorder.onstop?.(); };
+    await expect(active.stop()).rejects.toThrow('RECORDING_EMPTY');
+    expect(capture.track.readyState).toBe('ended');
+  });
   it('暂停会停止计时与录制，继续后排除暂停时长并对齐鼠标轨迹', async () => {
     vi.useFakeTimers(); installCapture();
     let pointer: ((sample: NativePointer) => void) | undefined;
@@ -156,6 +195,25 @@ describe('选择来源、倒计时与取消', () => {
     expect(capture.track.readyState).toBe('ended');
     expect(CaptureRecorder.instances[0].state).toBe('inactive');
     URL.revokeObjectURL(project.videoUrl ?? '');
+  });
+  it('输入焦点与鼠标位置分开保存，暂停中的输入不会延长镜头', async () => {
+    vi.useFakeTimers(); installCapture();
+    let emit: (sample: NativePointer) => void = () => undefined;
+    const bridge = {
+      selectSource: vi.fn(async () => undefined), startPointer: vi.fn(async () => undefined), stopPointer: vi.fn(async () => undefined), recordingState: vi.fn(async () => undefined),
+      onPointer: (callback: (sample: NativePointer) => void) => { emit = callback; return () => undefined; },
+    };
+    vi.stubGlobal('window', { desktop: bridge });
+    const active = await recordImmediately();
+    const focus = { x: 0.35, y: 0.3, width: 0.3, height: 0.04, source: 'control' } as const;
+    const input = (): void => emit({ timestamp: Date.now(), x: 0.8, y: 0.75, inside: true, kind: 'typing', focus });
+    await vi.advanceTimersByTimeAsync(1000); input(); active.pause();
+    await vi.advanceTimersByTimeAsync(5000); input(); active.resume();
+    await vi.advanceTimersByTimeAsync(1000); input(); await vi.advanceTimersByTimeAsync(1000);
+    const project = await active.stop();
+    expect(project.samples).toEqual([1, 2].map((time) => ({ time, x: 0.8, y: 0.75, kind: 'typing', focus })));
+    expect(project.clips).toHaveLength(1); expect(project.clips[0]).toMatchObject({ x: focus.x, y: focus.y });
+    expect(bridge.stopPointer).toHaveBeenCalledOnce(); URL.revokeObjectURL(project.videoUrl ?? '');
   });
 
   it('准备来源期间不启动录像，3 秒倒计时结束后才启动', async () => {

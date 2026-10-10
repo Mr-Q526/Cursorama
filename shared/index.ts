@@ -7,3 +7,7 @@ export * from './recording';
 export * from './editing';
 export * from './media-package';
 export * from './covers';
+export * from './background-image';
+export * from './about';
+export * from './playback';
+export * from './focus-sound';

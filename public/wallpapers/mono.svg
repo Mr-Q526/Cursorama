@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#070708"/><stop offset=".52" stop-color="#242427"/><stop offset="1" stop-color="#59595b"/></linearGradient>
+    <linearGradient id="white" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".35" stop-color="#e6e6e5"/><stop offset=".65" stop-color="#a4a4a7"/><stop offset="1" stop-color="#4e4e53"/></linearGradient>
+    <linearGradient id="black" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b1b1b4"/><stop offset=".3" stop-color="#454549"/><stop offset=".7" stop-color="#121215"/><stop offset="1" stop-color="#68686c"/></linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#a4a4a7" stop-opacity="0"/></linearGradient>
+    <filter id="shadow" x="-.2" y="-.2" width="1.4" height="1.4"><feDropShadow dx="-18" dy="50" stdDeviation="55" flood-color="#000" flood-opacity=".38"/></filter>
+  </defs>
+  <path fill="url(#base)" d="M0 0h3840v2160H0z"/>
+  <g filter="url(#shadow)">
+    <path fill="url(#white)" d="M-250 1490C580 1490 760 580 1550 620s500 890 1460 320 1130-460 1130-460v2030H-250Z"/>
+    <path fill="url(#black)" d="M-250 2330C710 1400 1980 1930 1840 960s-580-1190-340-1300c-560 900 180 1370-210 1720s-1220 40-1540 950Z"/>
+    <path fill="url(#white)" d="M3410-290c-840 850-890 1200-250 1640s-310 1000-970 1180h1940V-290Z"/>
+  </g>
+  <path fill="none" stroke="url(#rim)" stroke-width="4" stroke-opacity=".5" d="M-250 1490C580 1490 760 580 1550 620M3410-290c-840 850-890 1200-250 1640"/>
+</svg>

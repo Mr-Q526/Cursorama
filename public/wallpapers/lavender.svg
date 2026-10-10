@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#b0adc9"/><stop offset=".65" stop-color="#e0cddc"/><stop offset="1" stop-color="#c5aec7"/></linearGradient>
+    <linearGradient id="far" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#b5aac5"/><stop offset="1" stop-color="#9588ae"/></linearGradient>
+    <linearGradient id="middle" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8c7ba4"/><stop offset="1" stop-color="#655c8d"/></linearGradient>
+    <linearGradient id="near" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#625475"/><stop offset="1" stop-color="#303252"/></linearGradient>
+    <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#efe1e8" stop-opacity="0"/><stop offset=".55" stop-color="#e3d9e7" stop-opacity=".4"/><stop offset="1" stop-color="#e3d9e7" stop-opacity="0"/></linearGradient>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h3840v2160H0z"/>
+  <path fill="url(#far)" d="M-150 1480l680-350 640 50 520-330 330 150 600-220 850 450 500-240v1170H-150Z"/>
+  <path fill="url(#middle)" d="M-150 1510c470 170 550-390 1100-130s700-410 1200-320 1300 520 1840 300v990H-150Z"/>
+  <path fill="url(#haze)" d="M0 1130h3840v670H0z"/>
+  <path fill="url(#near)" d="M-150 1880c700-510 650-310 1180-40s1110-270 1850-30 800 80 1110-160v700H-150Z"/>
+  <path fill="none" stroke="#e6d5e3" stroke-opacity=".14" stroke-width="4" d="M-150 1880c700-510 650-310 1180-40s1110-270 1850-30"/>
+</svg>

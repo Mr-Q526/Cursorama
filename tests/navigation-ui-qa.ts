@@ -1,4 +1,5 @@
 import type { AppPage, AppTheme } from '../src/hooks';
+import type { SettingsPage } from '../src/components';
 import { t } from '../src/i18n';
 
 export interface NavigationUIReport {
@@ -44,7 +45,15 @@ export async function openSettingsUI(): Promise<void> {
   button.focus();
   button.click();
   await waitUntil(() => Boolean(document.querySelector('.settings-dialog')));
-  await waitUntil(() => Boolean(document.querySelector<HTMLInputElement>('#storage-projects')?.value));
+  await waitUntil(() => Boolean(document.querySelector('[data-settings-page="appearance"][aria-selected="true"]')));
+}
+
+export async function selectSettingsPageUI(page: SettingsPage): Promise<void> {
+  const button = document.querySelector<HTMLButtonElement>(`[data-settings-page="${page}"]`);
+  if (!button || button.disabled) throw new Error('QA_SETTINGS_PAGE_UNAVAILABLE');
+  button.click();
+  await waitUntil(() => Boolean(document.querySelector(`#settings-panel-${page}`)));
+  if (page === 'storage') await waitUntil(() => Boolean(document.querySelector<HTMLInputElement>('#storage-projects')?.value));
 }
 
 export async function closeSettingsUI(): Promise<void> {
@@ -95,7 +104,9 @@ export async function runNavigationUIQA(): Promise<NavigationUIReport> {
   const route = window.location.hash;
   await openSettingsUI();
   const library = await window.desktop?.listLibrary();
-  if (!library || document.querySelector<HTMLInputElement>('#storage-projects')?.value !== library.storage.projectDirectory || document.querySelector<HTMLInputElement>('#storage-exports')?.value !== library.storage.exportDirectory || document.querySelectorAll(`[aria-label="${t.appearance.light}"]`).length !== 1 || document.querySelectorAll(`[aria-label="${t.appearance.dark}"]`).length !== 1) throw new Error('QA_SETTINGS_NOT_CENTRALIZED');
+  if (!library || document.querySelectorAll(`[aria-label="${t.appearance.light}"]`).length !== 1 || document.querySelectorAll(`[aria-label="${t.appearance.dark}"]`).length !== 1) throw new Error('QA_SETTINGS_NOT_CENTRALIZED');
+  await selectSettingsPageUI('storage');
+  if (document.querySelector<HTMLInputElement>('#storage-projects')?.value !== library.storage.projectDirectory || document.querySelector<HTMLInputElement>('#storage-exports')?.value !== library.storage.exportDirectory) throw new Error('QA_SETTINGS_STORAGE_MISSING');
   if (window.location.hash !== route || !document.querySelector('.library-page') || !document.querySelector<HTMLElement>('.app-main')?.inert) throw new Error('QA_SETTINGS_NOT_MODAL');
   const separator = library.root.includes('\\') ? '\\' : '/';
   const projects = `${library.root}${separator}custom-projects`;
@@ -103,6 +114,7 @@ export async function runNavigationUIQA(): Promise<NavigationUIReport> {
   await editStorage(projects, exports);
   await closeSettingsUI();
   await openSettingsUI();
+  await selectSettingsPageUI('storage');
   if (document.querySelector<HTMLInputElement>('#storage-projects')?.value !== projects) throw new Error('QA_STORAGE_DIALOG_FORGOT_PATH');
   await editStorage(library.storage.projectDirectory, library.storage.exportDirectory);
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

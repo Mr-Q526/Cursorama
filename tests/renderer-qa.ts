@@ -95,6 +95,12 @@ export async function runRendererQA(sourceId: string) {
 }
 
 export { runLibraryUIQA, restoreLibraryUIQA } from './library-ui-qa';
+export { runFrameStepUIQA } from './preview-ui-qa';
+export { runCustomBackgroundQA, runBackgroundRestoreQA } from './background-image-qa';
+export { runCustomBackgroundUIQA } from './background-ui-qa';
+export { runSoundtrackAssetsQA, runSoundtrackUIQA, runSoundtrackExportQA, verifySoundtrackDecodedExportQA } from './soundtracks-ui-qa';
+export { runFocusSoundExportQA } from './focus-sound-qa';
+export { runFocusSoundAssetsQA, runFocusSoundUIQA } from './focus-sounds-ui-qa';
 export { runNavigationUIQA, setThemeUI, navigatePageUI, openSettingsUI, closeSettingsUI } from './navigation-ui-qa';
 
 export async function runWallpaperQA() {

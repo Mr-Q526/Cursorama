@@ -1,8 +1,10 @@
 import { execFile } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { app, desktopCapturer, type BrowserWindow } from 'electron';
+import { runNativeFocusQA } from '../tests/native-focus-qa';
 import { exportVideo } from './export';
 import { desktopCatalog } from './catalog';
 import type { LibraryUIReport } from '../tests/library-ui-qa';
@@ -10,6 +12,10 @@ import type { NavigationUIReport } from '../tests/navigation-ui-qa';
 import type { PreviewUIReport, RoundedFrameReport } from '../tests/preview-ui-qa';
 import type { GlassFrameReport } from '../tests/frame-glass-qa';
 import type { EditingUIReport } from '../tests/editing-ui-qa';
+import type { CustomBackgroundQAReport, RestoredBackgroundQAReport } from '../tests/background-image-qa';
+import type { SoundtrackExportReport } from '../tests/soundtracks-ui-qa';
+import type { FocusSoundExportReport } from '../tests/focus-sound-qa';
+import { verifyFocusMixQA } from '../tests/focus-mix-qa';
 
 interface CaptureReport {
   bytes: number[];
@@ -100,6 +106,28 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     await writeFile(path.join(output, 'desktop-dark.png'), (await window.webContents.capturePage()).toPNG());
     await window.webContents.executeJavaScript(await readFile(path.join(output, 'renderer-test.js'), 'utf8'));
     const navigation = await window.webContents.executeJavaScript(`cursoramaQA.runNavigationUIQA()`, true) as NavigationUIReport;
+    const frameStepping = await window.webContents.executeJavaScript(`cursoramaQA.runFrameStepUIQA()`, true) as Record<string, boolean>;
+    const { payload: backgroundPayload, image: backgroundImage, ...customBackground } = await window.webContents.executeJavaScript(`cursoramaQA.runCustomBackgroundQA()`, true) as CustomBackgroundQAReport;
+    const backgroundSource = path.join(output, 'custom-background.cursorama');
+    const movedDirectory = path.join(output, 'moved-background');
+    const movedBackground = path.join(movedDirectory, 'project.cursorama');
+    if (path.dirname(backgroundSource) !== output || path.dirname(path.dirname(movedBackground)) !== output) throw new Error('QA_BACKGROUND_MOVE_PATH');
+    await mkdir(movedDirectory, { recursive: true });
+    await writeFile(backgroundSource, Uint8Array.from(backgroundPayload));
+    await writeFile(path.join(output, 'custom-background.png'), Uint8Array.from(backgroundImage));
+    await rename(backgroundSource, movedBackground);
+    const { image: movedImage, ...movedBackgroundReport } = await window.webContents.executeJavaScript(`cursoramaQA.runBackgroundRestoreQA(${JSON.stringify(Array.from(await readFile(movedBackground)))})`, true) as RestoredBackgroundQAReport;
+    await writeFile(path.join(output, 'custom-background-restored.png'), Buffer.from(movedImage.split(',')[1], 'base64'));
+    const customBackgroundUI = await window.webContents.executeJavaScript(`cursoramaQA.runCustomBackgroundUIQA()`, true) as Record<string, boolean>;
+    const soundtrackAssets = await window.webContents.executeJavaScript(`cursoramaQA.runSoundtrackAssetsQA()`, true) as Record<string, unknown>;
+    const soundtrackUI = await window.webContents.executeJavaScript(`cursoramaQA.runSoundtrackUIQA()`, true) as Record<string, unknown>;
+    const focusSoundAssets = await window.webContents.executeJavaScript(`cursoramaQA.runFocusSoundAssetsQA()`, true) as Record<string, unknown>;
+    const focusSoundUI = await window.webContents.executeJavaScript(`cursoramaQA.runFocusSoundUIQA()`, true) as Record<string, unknown>;
+    const soundtrackExport = await window.webContents.executeJavaScript(`cursoramaQA.runSoundtrackExportQA()`, true) as SoundtrackExportReport;
+    const decodedSoundtrack = await window.webContents.executeJavaScript(`cursoramaQA.verifySoundtrackDecodedExportQA(${JSON.stringify(pathToFileURL(soundtrackExport.path).href)})`, true) as Record<string, number>;
+    const focusSoundExport = await window.webContents.executeJavaScript(`cursoramaQA.runFocusSoundExportQA()`, true) as FocusSoundExportReport;
+    const focusSoundMix = await verifyFocusMixQA(root, focusSoundExport);
+    const focusSounds = { assets: focusSoundAssets, ui: focusSoundUI, mix: focusSoundMix };
     await window.webContents.executeJavaScript(`cursoramaQA.setThemeUI('light')`, true);
     await window.webContents.executeJavaScript(`new Promise(resolve => setTimeout(resolve, 100))`);
     const lightPreviewValid = await window.webContents.executeJavaScript(`(() => {
@@ -128,6 +156,8 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } });
     const ownWindow = sources.find((source) => source.name === desktopCatalog.appName);
     if (!ownWindow) throw new Error('SMOKE_OWN_WINDOW_MISSING');
+    app.setAccessibilitySupportEnabled(true);
+    const nativeFocus = await runNativeFocusQA(window, root, ownWindow.id);
     await setSource(ownWindow.id);
     const result = await window.webContents.executeJavaScript(`(async () => {
       const canvas = document.querySelector('.preview-stage canvas');
@@ -188,7 +218,7 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     await window.webContents.executeJavaScript(`cursoramaQA.restoreLibraryUIQA(${JSON.stringify(libraryReport.projectId)})`, true);
     await writeFile(path.join(output, 'library-restored.png'), await captureRestoredPage(window));
     const { bytes: _bytes, ...report } = result;
-    await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: true, ...report, bytes: raw.length, emptyWorkspace, navigation: { ...navigation, lightTheme: true, darkTheme: true }, library: { ...libraryReport, restoredAfterReload: true }, editing: { ...editing, restoredAfterReload: true }, wallpapers: { count: wallpaperReport.count, coverAndFilters: wallpaperReport.coverAndFilters }, fullscreen, fullscreenControls, roundedFrame, glassFrame, recordingFlow: { ...ready, ...cancelledCountdown, ...startedCountdown }, renderer: rendererDetails, decodedFourK, decodedPausedRecording, errors }, null, 2));
+    await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: true, ...report, bytes: raw.length, emptyWorkspace, navigation: { ...navigation, lightTheme: true, darkTheme: true }, frameStepping, customBackground: { ...customBackground, moved: movedBackgroundReport, ui: customBackgroundUI }, soundtracks: { assets: soundtrackAssets, ui: soundtrackUI, export: { ...soundtrackExport, ...decodedSoundtrack } }, focusSounds, library: { ...libraryReport, restoredAfterReload: true }, editing: { ...editing, restoredAfterReload: true }, wallpapers: { count: wallpaperReport.count, coverAndFilters: wallpaperReport.coverAndFilters }, nativeFocus, fullscreen, fullscreenControls, roundedFrame, glassFrame, recordingFlow: { ...ready, ...cancelledCountdown, ...startedCountdown }, renderer: rendererDetails, decodedFourK, decodedPausedRecording, errors }, null, 2));
     if (errors.length) throw new Error(errors.join('\n'));
     console.info('桌面端验证通过：界面、原生鼠标追踪、应用窗口录制、3D 自动运镜、带效果 MP4 导出、项目恢复。');
     app.exit(0);

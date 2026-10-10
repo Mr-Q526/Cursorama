@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApertureIcon, CheckIcon, CircleIcon, DownloadSimpleIcon, FloppyDiskIcon, MonitorPlayIcon, SparkleIcon, XIcon } from '@phosphor-icons/react';
+import { ApertureIcon, CheckIcon, SparkleIcon, XIcon } from '@phosphor-icons/react';
 import type { ChangeEvent } from 'react';
-import type { EditorTab, EffectMode, ExportResult, LibraryProject, LibrarySnapshot, LibraryVideo, MotionClip, MusicClip, Project, ProjectData, RecordingCommand, StorageSettings, StoredProject, SubtitleClip, VideoSegment, VisualSettings } from '../shared';
-import { AUTOSAVE_DELAY, DEFAULT_SETTINGS, deleteSegment, EDITING_LIMITS, ensureEditing, getSegments, insertVideoSegment, packProjectMedia, parseEditingTimeline, PRESETS, PROJECT_EXTENSION, projectBytes, readProjectBytes, resolveTimeline, SOURCE_MEDIA_ID, splitSegment, timelineDuration, TIME, updateSegment } from '../shared';
-import { createDemoProject, downloadBlob, generateClips, importMediaFile, loadVideo, projectMetadata, projectPreviewRevision, pruneProjectMedia, recordedFocus, runtimeFromStored, startRecording } from './engine';
+import type { BackgroundImageAsset, EditorTab, EffectMode, ExportResult, LibraryProject, LibrarySnapshot, LibraryVideo, MotionClip, MusicClip, Project, ProjectData, RecordingCommand, StorageSettings, StoredProject, SubtitleClip, VideoSegment, VisualSettings } from '../shared';
+import { AUTOSAVE_DELAY, backgroundImageMetadata, DEFAULT_SETTINGS, deleteSegment, EDITING_LIMITS, ensureEditing, focusSoundSettings, getSegments, insertVideoSegment, packProjectMedia, parseEditingTimeline, PRESETS, PROJECT_EXTENSION, projectBytes, readProjectBytes, resolveTimeline, SOURCE_MEDIA_ID, splitSegment, timelineDuration, TIME, updateSegment } from '../shared';
+import { createDemoProject, downloadBlob, generateClips, importMediaFile, loadVideo, projectMetadata, projectPreviewRevision, pruneProjectMedia, recordedFocus, releaseBackgroundImage, runtimeFromStored, startRecording } from './engine';
 import type { PreparedRecording, RecordingSession } from './engine';
 import { useAppPage, usePlayback, useTheme, useUpdates, type PrompterDraft } from './hooks';
-import { AppHeader, EmptyWorkspace, ExportDialog, ExportPreview, IconButton, Inspector, LibraryPage, LibrarySidebar, Modal, Preview, RecordDialog, RecordingDock, SettingsDialog, Teleprompter, Timeline, UpdateNotice } from './components';
+import { AppHeader, EmptyWorkspace, ExportDialog, ExportPreview, FocusSoundControl, IconButton, Inspector, LibraryPage, LibrarySidebar, Modal, Preview, RecordDialog, RecordingDock, SettingsDialog, SoundtrackPanel, StudioToolbar, Teleprompter, Timeline, UpdateNotice } from './components';
+import { insertSoundtrack, loadSoundtrackAsset } from './soundtracks';
+import type { Soundtrack } from './soundtracks';
 import { configureLibrary, hasLocalLibrary, listLibrary, openLibraryProject, openLibraryVideo, previewLibraryCover, revealLibrary, saveLibraryProject } from './library';
 import type { LibraryVideoSource } from './library';
-import type { EditSelection } from './components';
-import { formatTime, t } from './i18n';
+import type { EditSelection, SettingsPage } from './components';
+import { t } from './i18n';
 
 export type AppDialog = 'record' | 'export' | 'guide' | 'settings' | null;
 interface VideoSelection { projectId: string; video: LibraryVideo; source: LibraryVideoSource; }
@@ -39,12 +41,13 @@ export function App() {
   const [libraryError, setLibraryError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [videoSelection, setVideoSelection] = useState<VideoSelection | null>(null);
-  const [tab, setTab] = useState<EditorTab>('motion');
+  const [tab, setTab] = useState<EditorTab>('background');
   const [selectedId, setSelectedId] = useState<string>();
   const [editSelection, setEditSelection] = useState<EditSelection>();
   const [mediaImporting, setMediaImporting] = useState(false);
   const [original, setOriginal] = useState(false);
   const [dialog, setDialog] = useState<AppDialog>(() => window.location.hash === '#/settings' ? 'settings' : null);
+  const [settingsPage, setSettingsPage] = useState<SettingsPage>('appearance');
   const [toast, setToast] = useState('');
   const [recording, setRecording] = useState(false);
   const [recordingElapsed, setRecordingElapsed] = useState(0);
@@ -63,10 +66,12 @@ export function App() {
   const mediaKind = useRef<'video' | 'audio'>('video');
   const previousUrl = useRef<string | undefined>(undefined);
   const previousMediaUrls = useRef(new Set<string>());
+  const previousBackgroundUrl = useRef<string | undefined>(undefined);
   const currentRef = useRef({ project, projectId, key: 0 });
   const pendingSave = useRef<PendingSave | null>(null);
   currentRef.current.project = project;
   currentRef.current.projectId = projectId;
+  const workspaceKey = currentRef.current.key;
   const playback = usePlayback(project);
   const { theme, setTheme } = useTheme();
   const { page, navigate } = useAppPage();
@@ -116,7 +121,7 @@ export function App() {
     if (page !== 'workspace') { playback.pause(); void refreshLibrary(); }
   }, [page, playback.pause, refreshLibrary]);
   useEffect(() => {
-    if (!project || !dirty || !hasLocalLibrary || (project.sourceType === 'demo' && !projectId && !project.mediaAssets?.length) || recording || processing || loading || mediaImporting || storageBusy || countdown !== null) return;
+    if (!project || !dirty || !hasLocalLibrary || (project.sourceType === 'demo' && !projectId && !project.mediaAssets?.length && !project.backgroundImage) || recording || processing || loading || mediaImporting || storageBusy || countdown !== null) return;
     const timeout = setTimeout(() => {
       void persist(project, projectId).catch((error: unknown) => { console.error('AUTOSAVE_FAILED', error); notify(t.library.saveFailed); });
     }, AUTOSAVE_DELAY);
@@ -134,22 +139,30 @@ export function App() {
   useEffect(() => () => { if (previousUrl.current) URL.revokeObjectURL(previousUrl.current); }, []);
   useEffect(() => {
     const urls = new Set(Object.values(project?.media ?? {}).map((asset) => asset.url));
+    if (project?.backgroundImageAsset) urls.add(project.backgroundImageAsset.url);
     for (const url of previousMediaUrls.current) if (!urls.has(url)) URL.revokeObjectURL(url);
     previousMediaUrls.current = urls;
-  }, [project?.media]);
+  }, [project?.media, project?.backgroundImageAsset]);
   useEffect(() => () => { for (const url of previousMediaUrls.current) URL.revokeObjectURL(url); }, []);
+  useEffect(() => {
+    const nextUrl = project?.backgroundImageAsset?.url;
+    if (previousBackgroundUrl.current && previousBackgroundUrl.current !== nextUrl) releaseBackgroundImage(previousBackgroundUrl.current);
+    previousBackgroundUrl.current = nextUrl;
+  }, [project?.backgroundImageAsset?.url]);
+  useEffect(() => () => { if (previousBackgroundUrl.current) releaseBackgroundImage(previousBackgroundUrl.current); }, []);
   useEffect(() => () => { if (videoSelection?.source.revoke) URL.revokeObjectURL(videoSelection.source.url); }, [videoSelection]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent): void => {
       const element = event.target;
-      if (page !== 'workspace' || !project || videoSelection || (element instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(element.tagName)) || dialog || busy) return;
+      if (page !== 'workspace' || !project || videoSelection || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || (element instanceof HTMLElement && (element.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName))) || dialog || busy) return;
+      if (element instanceof HTMLElement && element.closest('button') && !element.closest('.playback-controls, .timeline-panel')) return;
       if (event.code === 'Space') { event.preventDefault(); void playback.toggle(); }
-      if (event.code === 'ArrowLeft') { event.preventDefault(); playback.seek(playback.timeRef.current - 1); }
-      if (event.code === 'ArrowRight') { event.preventDefault(); playback.seek(playback.timeRef.current + 1); }
+      if (event.code === 'ArrowLeft') { event.preventDefault(); playback.stepFrame(-1); }
+      if (event.code === 'ArrowRight') { event.preventDefault(); playback.stepFrame(1); }
       if (event.code === 'Delete' || event.code === 'Backspace') { event.preventDefault(); deleteEditRef.current(); }
     };
     window.addEventListener('keydown', keydown); return () => window.removeEventListener('keydown', keydown);
-  }, [page, project, videoSelection, dialog, busy, playback.toggle, playback.seek, playback.timeRef]);
+  }, [page, project, videoSelection, dialog, busy, playback.toggle, playback.stepFrame]);
   useEffect(() => window.desktop?.onStopRecording(() => void stopRef.current()), []);
   useEffect(() => window.desktop?.onRecordingCommand((command) => recordingCommandRef.current(command)), []);
   useEffect(() => {
@@ -169,6 +182,14 @@ export function App() {
 
   const updateProject = (update: (current: Project) => Project): void => { setProject((current) => current ? update(current) : null); setDirty(true); };
   const settingsChanged = (settings: Partial<VisualSettings>): void => updateProject((current) => ({ ...current, settings: { ...current.settings, ...settings }, clips: settings.zoom === undefined ? current.clips : current.clips.map((clip) => ({ ...clip, zoom: settings.zoom ?? clip.zoom })) }));
+  const backgroundImageChanged = (image: BackgroundImageAsset): void => {
+    if (currentRef.current.key !== workspaceKey) { URL.revokeObjectURL(image.url); return; }
+    playback.pause();
+    updateProject((current) => ({ ...current, backgroundImage: backgroundImageMetadata(image), backgroundImageAsset: image, settings: { ...current.settings, background: 'custom' } }));
+  };
+  const removeBackgroundImage = (): void => {
+    updateProject((current) => ({ ...current, backgroundImage: undefined, backgroundImageAsset: undefined, settings: { ...current.settings, background: current.settings.background === 'custom' ? 'paper' : current.settings.background } }));
+  };
   const presetChanged = (mode: EffectMode): void => updateProject((current) => ({ ...current, settings: { ...current.settings, mode, ...PRESETS[mode] }, clips: current.clips.map((clip) => ({ ...clip, mode, zoom: PRESETS[mode].zoom })) }));
   const clipChanged = (id: string, patch: Partial<MotionClip>): void => updateProject((current) => ({ ...current, clips: current.clips.map((clip) => clip.id === id ? { ...clip, ...patch } : clip).sort((first, second) => first.start - second.start) }));
   const editProject = (update: (current: Project) => Project): boolean => {
@@ -218,6 +239,23 @@ export function App() {
     playback.pause(); mediaKind.current = kind;
     if (mediaInput.current) { mediaInput.current.accept = kind === 'video' ? 'video/*' : 'audio/*'; mediaInput.current.click(); }
   };
+  const addSoundtrack = async (track: Soundtrack): Promise<void> => {
+    if (!project || busy) return;
+    playback.pause();
+    const key = currentRef.current.key;
+    const position = playback.timeRef.current;
+    setMediaImporting(true);
+    try {
+      const asset = await loadSoundtrackAsset(track);
+      if (currentRef.current.key !== key) { URL.revokeObjectURL(asset.url); return; }
+      let clipId: string | undefined;
+      const applied = editProject((current) => { const insertion = insertSoundtrack(current, asset, position); clipId = insertion.clipId; return insertion.project; });
+      if (!applied || !clipId) { URL.revokeObjectURL(asset.url); return; }
+      setEditSelection({ kind: 'music', id: clipId }); setSelectedId(undefined); setTab('audio');
+      notify(t.soundtracks.added);
+    } catch (error) { console.error('SOUNDTRACK_INSERT_FAILED', error); notify(t.soundtracks.importFailed); }
+    finally { setMediaImporting(false); }
+  };
   const insertMedia = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (!file || !project) return;
     const key = currentRef.current.key;
@@ -266,7 +304,7 @@ export function App() {
     navigate('workspace');
   };
   const flushCurrent = async (): Promise<void> => {
-    if (project && dirty && hasLocalLibrary && (project.sourceType === 'video' || projectId || project.mediaAssets?.length)) await persist(project, projectId);
+    if (project && dirty && hasLocalLibrary && (project.sourceType === 'video' || projectId || project.mediaAssets?.length || project.backgroundImage)) await persist(project, projectId);
   };
   const configureStorage = async (settings: StorageSettings): Promise<void> => {
     setStorageBusy(true);
@@ -398,19 +436,26 @@ export function App() {
     finally { setPreparingUpdate(false); }
   };
 
-  return <div className={`app-shell${window.desktop ? ' desktop-window' : ''}`}>
-    <LibrarySidebar page={page} disabled={busy} settingsOpen={dialog === 'settings'} onNavigate={navigate} onSettings={() => { playback.pause(); setDialog('settings'); void refreshLibrary(); }} onOpen={() => void open()} onImport={() => videoInput.current?.click()} onDemo={() => void changeWorkspace(createDemoProject())} onRecord={record} />
-    <AppHeader page={page} projectName={project?.name} busy={busy} onBack={() => navigate('workspace')} />
+  return <div className={`app-shell${window.desktop ? ' desktop-window' : ''}${page === 'workspace' && project && !videoSelection ? ' editing-workspace' : ''}`}>
+    <LibrarySidebar page={page} disabled={busy} settingsOpen={dialog === 'settings'} onNavigate={navigate} onSettings={() => { playback.pause(); setSettingsPage('appearance'); setDialog('settings'); void refreshLibrary(); }} onOpen={() => void open()} onImport={() => videoInput.current?.click()} onDemo={() => void changeWorkspace(createDemoProject())} onRecord={record} onAudio={() => { playback.pause(); navigate('workspace'); setVideoSelection(null); setTab('audio'); }} audioOpen={page === 'workspace' && !videoSelection && tab === 'audio'} audioAvailable={Boolean(project)} />
+    <AppHeader page={page} projectName={videoSelection ? project?.name : undefined} busy={busy} onBack={() => navigate('workspace')} />
     <div className="app-main" data-page={page}>
       {page === 'library' ? <LibraryPage library={library} error={libraryError} loading={libraryLoading} disabled={busy} projectId={videoSelection?.projectId ?? projectId} videoId={videoSelection?.video.id} onProject={(item) => void openStored(item)} onVideo={(item, video) => void openStored(item, video)} onRefresh={() => void refreshLibrary()} onRecord={record} onImport={() => videoInput.current?.click()} /> : videoSelection ? <ExportPreview video={videoSelection.video} url={videoSelection.source.url} onBack={() => setVideoSelection(null)} onReveal={() => void reveal(videoSelection.projectId, videoSelection.video.id)} onError={() => notify(t.library.videoFailed)} /> : project ? <>
-        <div className="project-bar" data-project-id={projectId}><div className="project-title"><span className="project-icon"><MonitorPlayIcon size={20} /></span><div><input aria-label={t.appearance.projectName} className="project-name" value={project.name} maxLength={120} onChange={(event) => { const name = event.currentTarget.value; updateProject((current) => ({ ...current, name })); }} /><div className="project-details"><span>{formatTime(timelineDuration(project))}</span><span>·</span><span>{project.width} × {project.height}</span><span>·</span><span>{project.sourceType === 'demo' ? copy.demoBadge : t.library.autoSave}</span></div></div></div><div className="project-tools"><span className="save-status">{dirty || saving ? <CircleIcon size={7} weight="fill" /> : <CheckIcon size={13} />}{saving ? t.library.saving : dirty ? copy.unsaved : t.library.saved}</span>{project.sourceType === 'demo' && <button type="button" className="text-button" data-action="close-demo" disabled={busy} onClick={() => void changeWorkspace(null)}>{t.library.closeDemo}</button>}<button className="text-button" type="button" onClick={() => void save()} disabled={busy}><FloppyDiskIcon size={17} />{copy.saveProject}</button><button type="button" className="primary-button project-export" onClick={() => { playback.pause(); setDialog('export'); }} disabled={busy}><DownloadSimpleIcon size={16} />{copy.exportVideo}</button></div></div>
-        <div className="editor-layout"><main className="editor-center"><Preview project={project} playback={playback} original={original} onOriginal={setOriginal} /><Timeline project={project} time={playback.time} selectedId={selectedId} editSelection={editSelection} canDelete={canDeleteSelection} onSeek={playback.seek} onSelect={(id) => { playback.pause(); setSelectedId(id); setEditSelection(undefined); setTab('motion'); }} onEditSelect={selectEdit} onSplit={splitAtPlayhead} onDelete={deleteSelection} onImportMusic={() => chooseMedia('audio')} onAddSubtitle={addSubtitle} onAdd={() => addShot()} onRegenerate={() => { updateProject((current) => ({ ...current, clips: [...generateClips(current.samples, current.duration, current.settings.mode, current.settings.zoom), ...current.clips.filter((clip) => clip.manual)].sort((first, second) => first.start - second.start) })); setSelectedId(undefined); notify(copy.regenerateSuccess); }} /></main><Inspector project={project} tab={tab} onTab={setTab} onSettings={settingsChanged} onPreset={presetChanged} selectedClip={project.clips.find((clip) => clip.id === selectedId)} onClip={clipChanged} onDeleteClip={(id) => { updateProject((current) => ({ ...current, clips: current.clips.filter((clip) => clip.id !== id) })); setSelectedId(undefined); }} onTrim={(trimStart, trimEnd) => updateProject((current) => ({ ...current, trimStart, trimEnd }))} editing={{ time: playback.time, selection: editSelection, importing: mediaImporting, onSplit: splitAtPlayhead, onDelete: deleteSelection, onImport: chooseMedia, onAddSubtitle: addSubtitle, onSelect: selectEdit, onSegment: segmentChanged, onMusic: musicChanged, onSubtitle: subtitleChanged }} /></div>
+        <StudioToolbar project={project} projectId={projectId} dirty={dirty} saving={saving} busy={busy} onName={(name) => updateProject((current) => ({ ...current, name }))} onSave={() => void save()} onExport={() => { playback.pause(); setDialog('export'); }} onCloseDemo={() => void changeWorkspace(null)} />
+        <div className="editor-layout"><main className="editor-center">
+          <Preview project={project} playback={playback} original={original} onOriginal={setOriginal} onAspect={(aspect) => settingsChanged({ aspect })} />
+          <Timeline project={project} time={playback.time} selectedId={selectedId} editSelection={editSelection} canDelete={canDeleteSelection} onSeek={playback.seek} onSelect={(id) => { playback.pause(); setSelectedId(id); setEditSelection(undefined); setTab('motion'); }} onEditSelect={selectEdit} onSplit={splitAtPlayhead} onDelete={deleteSelection} onImportMusic={() => chooseMedia('audio')} onAddSubtitle={addSubtitle} onAdd={() => addShot()} onRegenerate={() => { updateProject((current) => ({ ...current, clips: [...generateClips(current.samples, current.duration, current.settings.mode, current.settings.zoom), ...current.clips.filter((clip) => clip.manual)].sort((first, second) => first.start - second.start) })); setSelectedId(undefined); notify(t.motion.regenerated); }} />
+        </main><Inspector key={workspaceKey} project={project} tab={tab} onTab={setTab} onSettings={settingsChanged} onPreset={presetChanged} selectedClip={project.clips.find((clip) => clip.id === selectedId)} onClip={clipChanged} onDeleteClip={(id) => { updateProject((current) => ({ ...current, clips: current.clips.filter((clip) => clip.id !== id) })); setSelectedId(undefined); }} onTrim={(trimStart, trimEnd) => updateProject((current) => ({ ...current, trimStart, trimEnd }))}
+          backgroundImage={project.backgroundImageAsset} onBackgroundImage={backgroundImageChanged} onRemoveBackgroundImage={removeBackgroundImage}
+          audioPanel={<><FocusSoundControl setting={focusSoundSettings(project.settings)} onChange={(focusSound) => { playback.pause(); settingsChanged({ focusSound }); }} onPreviewStart={playback.pause} disabled={mediaImporting || recording || processing || Boolean(dialog)} /><SoundtrackPanel project={project} time={playback.time} importing={mediaImporting || recording || processing || Boolean(dialog)} onInsert={(track) => void addSoundtrack(track)} onImport={() => chooseMedia('audio')} onSelectMusic={(id) => selectEdit({ kind: 'music', id })} onPreviewStart={playback.pause} /></>}
+          editing={{ time: playback.time, selection: editSelection, importing: mediaImporting, onSplit: splitAtPlayhead, onDelete: deleteSelection, onImport: chooseMedia, onAddSubtitle: addSubtitle, onSelect: selectEdit, onSegment: segmentChanged, onMusic: musicChanged, onSubtitle: subtitleChanged }} />
+        </div>
       </> : <EmptyWorkspace onRecord={record} onImport={() => videoInput.current?.click()} onOpen={() => void open()} disabled={busy} />}
     </div>
     <input type="file" className="visually-hidden" ref={videoInput} accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onChange={(event) => void importVideo(event)} /><input type="file" className="visually-hidden" ref={projectInput} accept={`.${PROJECT_EXTENSION}`} onChange={(event) => void importProject(event)} /><input type="file" className="visually-hidden" ref={mediaInput} data-editing-media accept="video/*,audio/*" onChange={(event) => void insertMedia(event)} />
     {dialog === 'record' && <RecordDialog onClose={() => setDialog(null)} onStart={beginRecording} />}
-    {dialog === 'settings' && <SettingsDialog theme={theme} onTheme={setTheme} library={library} loading={libraryLoading} error={libraryError} onSave={configureStorage} onClose={() => setDialog(null)} onRefresh={() => void refreshLibrary()} onGuide={() => setDialog('guide')} updates={updates} onInstallUpdate={installUpdate} installing={preparingUpdate || updates.state.status === 'installing'} />}
-    {!busy && !dialog && <UpdateNotice state={updates.state} onOpen={() => { playback.pause(); setDialog('settings'); void refreshLibrary(); }} />}
+    {dialog === 'settings' && <SettingsDialog theme={theme} onTheme={setTheme} library={library} loading={libraryLoading} error={libraryError} onSave={configureStorage} onClose={() => setDialog(null)} onRefresh={() => void refreshLibrary()} onGuide={() => setDialog('guide')} updates={updates} onInstallUpdate={installUpdate} installing={preparingUpdate || updates.state.status === 'installing'} initialPage={settingsPage} />}
+    {!busy && !dialog && <UpdateNotice state={updates.state} onOpen={() => { playback.pause(); setSettingsPage('about'); setDialog('settings'); void refreshLibrary(); }} />}
     {dialog === 'export' && project && <ExportDialog project={project} ensureSaved={ensureSaved} onComplete={() => void refreshLibrary()} onClose={() => setDialog(null)} />}
     {dialog === 'guide' && <Modal title={copy.guideTitle} onClose={() => setDialog(null)}><div className="guide-steps">{copy.guideSteps.map(([title, description], index) => <div key={title}><span>{index + 1}</span><div><h3>{title}</h3><p>{description}</p></div></div>)}</div><p className="guide-note"><SparkleIcon size={19} />{copy.guideNote}</p>{!window.desktop && <p className="field-hint">{copy.browserHint}</p>}</Modal>}
     {recording && !window.desktop && <div className="browser-recording-dock"><RecordingDock state={{ active: true, paused: recordingPaused, elapsed: recordingElapsed, pending: false, script: prompter.script, prompterVisible: prompter.enabled }} onCommand={recordingCommand} onPrompter={() => setPrompter((current) => ({ ...current, enabled: !current.enabled }))} /></div>}

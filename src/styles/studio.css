@@ -1,0 +1,67 @@
+.app-shell.editing-workspace { --library-width: 72px; min-height: 0; }
+.editing-workspace .header-brand { width: 218px; }
+.editing-workspace .library-sidebar { padding: 16px 8px 12px; align-items: center; }
+.editing-workspace .library-actions, .editing-workspace .sidebar-navigation { width: 100%; }
+.editing-workspace .library-actions button, .editing-workspace .sidebar-navigation button { width: 40px; height: 40px; min-height: 40px; margin: 0 auto; padding: 0; justify-content: center; }
+.editing-workspace .library-actions > div { flex-direction: column; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.editing-workspace .library-actions button > span, .editing-workspace .sidebar-link > span { display: none; }
+.editing-workspace .sidebar-navigation { gap: 10px; padding-top: 18px; }
+.editing-workspace .library-bottom { width: 100%; gap: 4px; padding-top: 12px; }
+.editing-workspace .library-bottom button { width: 26px; height: 30px; min-height: 30px; padding: 0; flex: 1; justify-content: center; border: 0; background: transparent; }
+.editing-workspace .library-bottom button:hover { background: var(--tone-90); }
+.editing-workspace .project-bar { height: 52px; padding: 0 22px; gap: 16px; }
+.editing-workspace .project-title { gap: 15px; min-width: 0; }
+.editing-workspace .project-name { width: 220px; max-width: 25vw; font-size: 13px; }
+.studio-source-info { display: flex; align-items: center; gap: 8px; color: var(--text-tertiary); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.editing-workspace .project-tools { gap: 16px; }
+.editing-workspace .project-tools .save-status { font-size: 10px; }
+.editing-workspace .project-export { min-height: 32px; }
+.editing-workspace .editor-layout { display: grid; grid-template-columns: 276px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 16px 22px; padding: 0 22px 16px; overflow: hidden; }
+.editing-workspace .editor-center { display: contents; }
+.editing-workspace .inspector { grid-column: 1; grid-row: 1; border-radius: 10px; min-width: 0; flex-shrink: 1; }
+.editing-workspace .inspector-tabs { height: 52px; padding: 0 6px; background: transparent; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.editing-workspace .inspector-tabs button { gap: 4px; font-size: 10px; }
+.editing-workspace .inspector-scroll { overflow-y: auto; padding: 18px 16px 8px; }
+.editing-workspace .inspector-heading { margin-bottom: 17px; }
+.editing-workspace .inspector-heading h2 { margin: 0; font-size: 12px; color: var(--text-primary); }
+.editing-workspace .control-section { padding-bottom: 16px; margin-bottom: 16px; }
+.editing-workspace .slider-stack { gap: 10px; margin-top: 14px; }
+.editing-workspace .slider-control { padding: 9px 10px 5px; border-radius: 7px; background: var(--shell-background); }
+.editing-workspace .slider-label { font-size: 11px; color: var(--text-secondary); }
+.editing-workspace .slider-label output { padding: 0; border: 0; background: transparent; font-size: 10px; color: var(--text-primary); }
+.editing-workspace .slider-control input[type='range'] { margin: 10px 0 7px; }
+.editing-workspace .field-hint { font-size: 10px; line-height: 1.7; }
+.editing-workspace .preset-grid { gap: 8px; }
+.editing-workspace .preset-art { height: 45px; }
+.editing-workspace .preview-panel { grid-column: 2; grid-row: 1; min-height: 0; flex: initial; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.editing-workspace .preview-toolbar { height: 36px; padding: 0 0 10px; border: 0; }
+.editing-workspace .preview-meta { font-size: 10px; }
+.studio-aspect { padding: 4px 7px; border: 0; font-size: 11px; color: var(--text-secondary); background: transparent; }
+.editing-workspace .preview-stage:not(:fullscreen) { background: var(--shell-background); background-image: none; border-radius: 12px; }
+.editing-workspace .preview-stage:not(:fullscreen) canvas { box-shadow: none; }
+.editing-workspace .demo-hint { display: none; }
+.editing-workspace .playback-controls.playback-bar { height: 60px; padding: 10px 0 0; background: transparent; border: 0; }
+.studio-wallpapers.wallpaper-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.studio-wallpapers .wallpaper-option { padding: 3px; border-radius: 8px; }
+.studio-wallpapers .wallpaper-thumbnail { aspect-ratio: 1; margin: 0; }
+.studio-wallpapers .wallpaper-check { width: 15px; height: 15px; top: 3px; right: 3px; }
+.editing-workspace .wallpaper-section > .segmented { margin-bottom: 14px; }
+.editing-workspace .background-more-button { min-height: 32px; margin-top: 12px; font-size: 10px; }
+.editing-workspace .background-selected { margin-top: 12px; }
+.editing-workspace .neutral-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.editing-workspace .background-swatch { height: 54px; }
+.editing-workspace .timeline-panel.editing-timeline { grid-column: 1 / -1; grid-row: 2; height: calc(80px + var(--track-count, 2) * 36px); min-height: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.editing-workspace .timeline-heading { height: 38px; border: 0; padding: 0; }
+.editing-workspace .timeline-body { padding: 0 5px 10px 0; overflow: hidden; }
+.editing-workspace .timeline-title h2 { font-size: 11px; }
+.editing-workspace .timeline-actions { gap: 7px; }
+.editing-workspace .track-labels { width: 75px; padding-left: 0; }
+.editing-workspace .track-labels > div:first-of-type + div { height: 44px; }
+.editing-workspace .editing-video-track { height: 44px; }
+.editing-workspace .timeline-segment { height: 38px; border-radius: 5px; }
+.editing-workspace .timeline-segment .thumbnail-strip { opacity: .7; }
+.editing-workspace .timeline-footer { display: none; }
+.editing-workspace .motion-track { border-bottom: 1px solid var(--line); }
+.editing-workspace .timeline-actions .icon-button[aria-pressed='true'] { color: var(--text-primary); background: var(--tone-90); }
+@media (max-width: 1100px) { .editing-workspace .editor-layout { grid-template-columns: 244px minmax(0, 1fr); gap: 14px; padding: 0 16px 14px; } .editing-workspace .project-bar { padding: 0 16px; } .studio-source-info { display: none; } .editing-workspace .inspector-scroll { padding: 16px 12px 6px; } .editing-workspace .project-tools { gap: 12px; } }
+@media (max-height: 700px) { .editing-workspace .project-bar { height: 44px; } .editing-workspace .editor-layout { gap: 10px 16px; padding-bottom: 10px; } .editing-workspace .timeline-panel.editing-timeline { max-height: 210px; } .editing-workspace .timeline-body { overflow-y: auto; } }

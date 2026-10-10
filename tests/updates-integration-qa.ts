@@ -10,19 +10,22 @@ import { ElectronHttpExecutor } from 'electron-updater/out/electronHttpExecutor'
 import type { InstallOptions } from 'electron-updater/out/BaseUpdater';
 import { configureUpdateDriver, UpdateService } from '../electron/updates';
 import { registerWindowControls } from '../electron/window';
-import { APP_VERSION, IPC, UPDATE_CONFIG } from '../shared';
+import { APP_VERSION, IPC, UPDATE_CONFIG, type AboutLink, type UpdateState } from '../shared';
 import { LocalLibrary } from '../storage/library';
 import { runWindowUIQA, type WindowUIReport } from './window-ui-qa';
+import { runSettingsUIQA, type SettingsUIReport } from './settings-ui-qa';
 
 export interface UpdateIntegrationReport {
   check: boolean; download: boolean; hashVerified: boolean; corruptedRejected: boolean;
   installTriggered: boolean; currentVersion: boolean; downgradeBlocked: boolean; ui: boolean;
   windowControls: WindowUIReport;
+  settings: SettingsUIReport;
 }
 
-const QA = { initialVersion: '0.1.0', filename: `Cursorama-Setup-${APP_VERSION}-x64.exe`, latest: APP_VERSION, loopback: '127.0.0.1', timeout: 120_000 } as const;
+const QA = { initialVersion: '0.1.0', filename: `Cursorama-Setup-${APP_VERSION}-x64.exe`, latest: APP_VERSION, loopback: '127.0.0.1', timeout: 120_000, downloadProgress: 9 } as const;
 const root = process.cwd();
 const output = path.join(root, '.qa');
+const HTML_NOTES = '<h2>剪辑与字幕</h2><ul><li><strong>基础剪辑</strong>：支持分割、裁剪与倍速。</li><li>增加音乐 &amp; 字幕，兼容旧工程。</li></ul><p>安装 <code>Cursorama.exe</code>，查看 <a href="https://cursorama-qa.invalid/guide" onclick="window.cursoramaNotesExecuted=true">使用指南</a>。</p><img src="https://cursorama-qa.invalid/should-not-load.png" onerror="window.cursoramaNotesExecuted=true"><script>window.cursoramaNotesExecuted=true</script><iframe src="https://cursorama-qa.invalid/frame"></iframe>';
 app.setPath('userData', path.join(output, 'updates-test-profile'));
 app.on('window-all-closed', () => undefined);
 
@@ -95,20 +98,23 @@ async function run(): Promise<UpdateIntegrationReport> {
     const downgrade = await updater.checkForUpdates(); assert(downgrade && !downgrade.isUpdateAvailable, 'QA_DOWNGRADE_ALLOWED');
     const library = new LocalLibrary(path.join(workspace, 'ui-library'));
     ipcMain.handle(IPC.libraryList, () => library.list());
-    const state = { ...service.current, status: 'available' as const, latestVersion: QA.latest, downloaded: false, error: null };
+    const state: UpdateState = { ...service.current, status: 'available', latestVersion: QA.latest, releaseNotes: HTML_NOTES, automatic: true, downloaded: false, error: null };
     ipcMain.handle(IPC.updateGet, () => state);
     ipcMain.handle(IPC.updateAutomatic, (_event, enabled: boolean) => { state.automatic = enabled; state.revision++; return state; });
     const ui = new BrowserWindow({ frame: false, show: false, width: 1480, height: 960, webPreferences: { preload: path.join(root, 'dist-electron/preload.cjs'), contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+    const publish = (patch: Partial<UpdateState>): UpdateState => { Object.assign(state, patch, { revision: state.revision + 1 }); ui.webContents.send(IPC.updateState, state); return state; };
+    ipcMain.handle(IPC.updateCheck, () => publish({ status: 'checking', error: null }));
+    ipcMain.handle(IPC.updateDownload, () => publish({ status: 'downloading', progress: QA.downloadProgress, error: null }));
+    let notesRequests = 0;
+    ui.webContents.session.webRequest.onBeforeRequest({ urls: ['https://cursorama-qa.invalid/*'] }, (_details, callback) => { notesRequests++; callback({ cancel: true }); });
     registerWindowControls(ui);
     await ui.loadFile(path.join(root, 'dist', 'index.html'));
-    await ui.webContents.executeJavaScript(`document.querySelector('[data-action="open-settings"]').click(); new Promise(resolve => setTimeout(resolve, 400))`);
-    const visible = await ui.webContents.executeJavaScript(`Boolean(document.querySelector('.update-settings [data-action="check-updates"]') && document.querySelector('[data-update-status="available"]') && document.querySelector('[data-action="download-update"]'))`) as boolean;
-    assert(visible, 'QA_UPDATE_UI_MISSING');
     ui.showInactive();
-    await ui.webContents.executeJavaScript(`document.querySelector('.update-settings').scrollIntoView({block:'end'}); new Promise(resolve => setTimeout(resolve, 500))`);
-    await writeFile(path.join(output, 'update-settings.png'), (await ui.webContents.capturePage()).toPNG());
+    const openedLinks: AboutLink[] = [];
+    ipcMain.handle(IPC.aboutLink, (_event, target: AboutLink) => { openedLinks.push(target); });
+    const settings = await runSettingsUIQA(ui, output, { currentVersion: APP_VERSION, notes: HTML_NOTES, setState: publish, resourceRequests: () => notesRequests, openedLinks: () => openedLinks });
     const windowControls = await runWindowUIQA(ui, output);
-    return { check: true, download: true, hashVerified: true, corruptedRejected: true, installTriggered: true, currentVersion: true, downgradeBlocked: true, ui: true, windowControls };
+    return { check: true, download: true, hashVerified: true, corruptedRejected: true, installTriggered: true, currentVersion: true, downgradeBlocked: true, ui: true, windowControls, settings };
   } finally { service.dispose(); await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
 }
 

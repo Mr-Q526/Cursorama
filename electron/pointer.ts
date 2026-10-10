@@ -1,16 +1,21 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { screen } from 'electron';
-import type { NativePointer } from '../shared';
+import type { FocusRegion, NativePointer, PointerKind } from '../shared';
 import { desktopCatalog } from './catalog';
 
-interface RawPointer { x: number; y: number; screenX: number; screenY: number; timestamp: number; kind: 'move' | 'click'; button?: 'left' | 'right'; normalized: boolean; inside: boolean; }
+interface RawPointer { x: number; y: number; screenX: number; screenY: number; timestamp: number; kind: PointerKind; button?: 'left' | 'right'; focus?: FocusRegion; normalized: boolean; inside: boolean; }
 const POINTER_START_TIMEOUT = 12_000;
 
 function isRawPointer(value: unknown): value is RawPointer {
   if (typeof value !== 'object' || value === null) return false;
   const event = value as Record<string, unknown>;
-  return typeof event.x === 'number' && typeof event.y === 'number' && typeof event.screenX === 'number' && typeof event.screenY === 'number' && typeof event.timestamp === 'number' && (event.kind === 'move' || event.kind === 'click');
+  const finite = (number: unknown): number is number => typeof number === 'number' && Number.isFinite(number);
+  const focus = event.focus as Record<string, unknown> | undefined;
+  return finite(event.x) && finite(event.y) && finite(event.screenX) && finite(event.screenY) && finite(event.timestamp) &&
+    ['move', 'click', 'typing', 'scroll', 'drag'].includes(String(event.kind)) && typeof event.normalized === 'boolean' && typeof event.inside === 'boolean' &&
+    (event.button === undefined || event.button === 'left' || event.button === 'right') &&
+    (focus === undefined || (typeof focus === 'object' && focus !== null && finite(focus.x) && finite(focus.y) && finite(focus.width) && finite(focus.height) && focus.width >= 0 && focus.height >= 0 && (focus.source === 'caret' || focus.source === 'control')));
 }
 
 export class PointerTracker {
@@ -38,15 +43,25 @@ export class PointerTracker {
         try { event = JSON.parse(line) as unknown; } catch (error) { console.warn('POINTER_PARSE_FAILED', error); return; }
         if (!isRawPointer(event)) return;
         const screenPoint = screen.screenToDipPoint({ x: Math.round(event.screenX), y: Math.round(event.screenY) });
-        if (ignorePoint?.(screenPoint)) return;
-        let x = event.x; let y = event.y; let inside = event.inside;
+        if ((event.kind !== 'typing' || !event.focus) && ignorePoint?.(screenPoint)) return;
+        let x = event.x; let y = event.y; let inside = event.inside; let focus = event.focus;
         if (!event.normalized) {
           const position = screen.screenToDipPoint({ x: Math.round(x), y: Math.round(y) });
           x = (position.x - display.bounds.x) / display.bounds.width;
           y = (position.y - display.bounds.y) / display.bounds.height;
           inside = x >= 0 && x <= 1 && y >= 0 && y <= 1;
+          if (focus) {
+            const topLeft = screen.screenToDipPoint({ x: Math.round(focus.x - focus.width / 2), y: Math.round(focus.y - focus.height / 2) });
+            const bottomRight = screen.screenToDipPoint({ x: Math.round(focus.x + focus.width / 2), y: Math.round(focus.y + focus.height / 2) });
+            const focusPoint = { x: (topLeft.x + bottomRight.x) / 2, y: (topLeft.y + bottomRight.y) / 2 };
+            if (ignorePoint?.(focusPoint)) return;
+            focus = { ...focus, x: (focusPoint.x - display.bounds.x) / display.bounds.width, y: (focusPoint.y - display.bounds.y) / display.bounds.height, width: (bottomRight.x - topLeft.x) / display.bounds.width, height: (bottomRight.y - topLeft.y) / display.bounds.height };
+            inside = focus.x >= 0 && focus.x <= 1 && focus.y >= 0 && focus.y <= 1;
+          }
         }
-        callback({ x, y, inside, timestamp: event.timestamp, kind: event.kind, button: event.button });
+        if (focus && (focus.x < 0 || focus.x > 1 || focus.y < 0 || focus.y > 1)) return;
+        if (focus) focus = { ...focus, width: Math.min(1, focus.width), height: Math.min(1, focus.height) };
+        callback({ x, y, inside, timestamp: event.timestamp, kind: event.kind, button: event.button, ...(focus ? { focus } : {}) });
       });
     });
   }

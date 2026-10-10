@@ -1,4 +1,5 @@
 import { EDITING_LIMITS, isMediaIdentifier, SOURCE_MEDIA_ID } from './editing';
+import { BACKGROUND_IMAGE_LIMITS, parseBackgroundImage, validateBackgroundImagePayload } from './background-image';
 import type { Project, ProjectData } from './types';
 
 export const MEDIA_PACKAGE_MAGIC = 'CURMED01';
@@ -6,7 +7,7 @@ export const MEDIA_PACKAGE_HEADER_SIZE = 12;
 export const MEDIA_PACKAGE_LIMITS = {
   maxHeaderBytes: 1024 * 1024,
   maxPayloadBytes: 2 * 1024 * 1024 * 1024 - 1,
-  maxEntries: EDITING_LIMITS.maxAssets + 1,
+  maxEntries: EDITING_LIMITS.maxAssets + 2,
 } as const;
 
 export interface MediaPackageEntry {
@@ -39,6 +40,12 @@ function expectedMediaIds(project: ProjectData): Set<string> {
   for (const asset of project.mediaAssets ?? []) {
     if (!isMediaIdentifier(asset.id) || asset.id === SOURCE_MEDIA_ID || expected.has(asset.id)) throw new Error('INVALID_MEDIA_ASSETS');
     expected.add(asset.id);
+  }
+  const backgroundImage = parseBackgroundImage(project.backgroundImage);
+  if (project.settings.background === 'custom' && !backgroundImage) throw new Error('MISSING_BACKGROUND_IMAGE');
+  if (backgroundImage) {
+    if (expected.has(backgroundImage.id)) throw new Error('INVALID_BACKGROUND_IMAGE');
+    expected.add(backgroundImage.id);
   }
   if (expected.size > MEDIA_PACKAGE_LIMITS.maxEntries) throw new Error('TOO_MANY_MEDIA_ASSETS');
   return expected;
@@ -78,19 +85,25 @@ export function validateProjectMediaPayload(project: ProjectData, payload?: Arra
   if (!payload || payload.byteLength === 0) {
     if (project.sourceType === 'video') throw new Error('MISSING_VIDEO');
     if (project.mediaAssets?.length) throw new Error('MISSING_MEDIA_ASSET');
+    if (project.backgroundImage) throw new Error('MISSING_BACKGROUND_IMAGE');
     return;
   }
   if (hasMediaPackageHeader(payload)) {
-    readManifest(project, payload);
+    const { entries, bodyStart } = readManifest(project, payload);
+    if (project.backgroundImage) {
+      const entry = entries.find(({ id }) => id === project.backgroundImage?.id);
+      if (!entry) throw new Error('MISSING_BACKGROUND_IMAGE');
+      validateBackgroundImagePayload(project.backgroundImage, new Uint8Array(payload, bodyStart + entry.offset, entry.length));
+    }
     return;
   }
-  if (payload.byteLength > MEDIA_PACKAGE_LIMITS.maxPayloadBytes || project.mediaAssets?.length || project.sourceType !== 'video') throw new Error('INVALID_MEDIA_PACKAGE');
+  if (payload.byteLength > MEDIA_PACKAGE_LIMITS.maxPayloadBytes || project.mediaAssets?.length || project.backgroundImage || project.sourceType !== 'video') throw new Error('INVALID_MEDIA_PACKAGE');
 }
 
 export async function packProjectMedia(project: Project): Promise<ArrayBuffer | undefined> {
   const expected = expectedMediaIds(project);
   if (project.sourceType === 'video' && (!project.videoBlob || project.videoBlob.size === 0)) throw new Error('MISSING_VIDEO');
-  if ((project.mediaAssets?.length ?? 0) === 0) {
+  if ((project.mediaAssets?.length ?? 0) === 0 && !project.backgroundImage) {
     if (!project.videoBlob || project.sourceType !== 'video') return undefined;
     if (project.videoBlob.size > MEDIA_PACKAGE_LIMITS.maxPayloadBytes) throw new Error('MEDIA_PACKAGE_TOO_LARGE');
     return project.videoBlob.arrayBuffer();
@@ -101,6 +114,14 @@ export async function packProjectMedia(project: Project): Promise<ArrayBuffer | 
     const media = project.media?.[asset.id];
     if (!media || media.id !== asset.id || media.blob.size === 0) throw new Error('MISSING_MEDIA_ASSET');
     blobs.push({ id: asset.id, blob: media.blob });
+  }
+  if (project.backgroundImage) {
+    const image = project.backgroundImageAsset;
+    if (!image || image.id !== project.backgroundImage.id || image.blob.size === 0) throw new Error('MISSING_BACKGROUND_IMAGE');
+    if (image.blob.size > BACKGROUND_IMAGE_LIMITS.maxBytes || image.mimeType !== project.backgroundImage.mimeType ||
+      image.width !== project.backgroundImage.width || image.height !== project.backgroundImage.height) throw new Error('INVALID_BACKGROUND_IMAGE');
+    validateBackgroundImagePayload(project.backgroundImage, new Uint8Array(await image.blob.slice(0, BACKGROUND_IMAGE_LIMITS.signatureBytes).arrayBuffer()));
+    blobs.push({ id: image.id, blob: image.blob });
   }
   if (blobs.length !== expected.size) throw new Error('MISSING_MEDIA_ASSET');
   let offset = 0;

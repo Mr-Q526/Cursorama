@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Project } from '../../shared';
-import { timelineDuration, TIME } from '../../shared';
+import type { FrameDirection, Project } from '../../shared';
+import { frameStepTime, playbackFrameRate, timelineDuration, TIME } from '../../shared';
 import { clamp } from '../engine/motion';
 import { TimelineMediaController } from '../engine/timeline-media';
 
@@ -13,6 +13,7 @@ export function usePlayback(project: Project | null) {
   const timeRef = useRef(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playingRef = useRef(false);
+  const requestRef = useRef(0);
   const mutedRef = useRef(muted);
   const projectRef = useRef(project);
   const mediaRef = useRef<TimelineMediaController | null>(null);
@@ -26,6 +27,7 @@ export function usePlayback(project: Project | null) {
   useEffect(() => {
     const abort = new AbortController();
     const current = projectRef.current;
+    requestRef.current++;
     playingRef.current = false; setPlaying(false);
     videoRef.current = null;
     if (!current) { timeRef.current = 0; setTimeState(0); readyRef.current = null; return; }
@@ -38,6 +40,7 @@ export function usePlayback(project: Project | null) {
       if (latest) { media.sync(latest, timeRef.current, false, mutedRef.current); videoRef.current = media.video; }
     }).catch((error: unknown) => { if (!abort.signal.aborted) console.error('PREVIEW_MEDIA_LOAD_FAILED', error); });
     return () => {
+      requestRef.current++;
       abort.abort();
       const media = mediaRef.current; mediaRef.current = null;
       if (media) void media.dispose().catch((error: unknown) => console.error('PREVIEW_MEDIA_RELEASE_FAILED', error));
@@ -52,7 +55,14 @@ export function usePlayback(project: Project | null) {
     if (current && mediaRef.current) { mediaRef.current.sync(current, value, playingRef.current, mutedRef.current); videoRef.current = mediaRef.current.video; }
   }, []);
 
-  const pause = useCallback((): void => { playingRef.current = false; setPlaying(false); mediaRef.current?.pause(); }, []);
+  const pause = useCallback((): void => { requestRef.current++; playingRef.current = false; setPlaying(false); mediaRef.current?.pause(); }, []);
+
+  const stepFrame = useCallback((direction: FrameDirection): void => {
+    const current = projectRef.current;
+    if (!current) return;
+    pause();
+    seek(frameStepTime(timeRef.current, direction, timelineDuration(current), playbackFrameRate(current)));
+  }, [pause, seek]);
 
   useEffect(() => { pause(); seek(0); }, [project?.videoUrl, project?.sourceType, pause, seek]);
   useEffect(() => { if (project) seek(Math.min(timeRef.current, timelineDuration(project))); }, [project?.editing, project?.trimStart, project?.trimEnd, seek]);
@@ -60,13 +70,16 @@ export function usePlayback(project: Project | null) {
   const toggle = useCallback(async (): Promise<void> => {
     if (boundsRef.current.end === 0) return;
     if (playingRef.current) { pause(); return; }
+    const request = ++requestRef.current;
     if (timeRef.current >= boundsRef.current.end - PLAYBACK_END_EPSILON || timeRef.current < boundsRef.current.start) seek(boundsRef.current.start);
     try {
       const media = await readyRef.current;
       const current = projectRef.current;
-      if (!current || !media) return;
+      if (!current || !media || request !== requestRef.current) return;
       await media.prepareAudio(current);
+      if (request !== requestRef.current) return;
       await media.seek(current, timeRef.current);
+      if (request !== requestRef.current) return;
       playingRef.current = true; setPlaying(true);
       media.sync(current, timeRef.current, true, mutedRef.current); videoRef.current = media.video;
     } catch (error) { console.error('PREVIEW_PLAY_FAILED', error); pause(); }
@@ -91,7 +104,7 @@ export function usePlayback(project: Project | null) {
     return () => cancelAnimationFrame(frame);
   }, [pause]);
 
-  return { time, timeRef, videoRef, playing, muted, seek, pause, toggle, toggleMuted: () => setMuted((current) => !current) };
+  return { time, timeRef, videoRef, playing, muted, seek, pause, stepFrame, toggle, toggleMuted: () => setMuted((current) => !current) };
 }
 
 export type PlaybackController = ReturnType<typeof usePlayback>;

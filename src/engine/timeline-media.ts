@@ -1,5 +1,7 @@
-import { resolveTimeline, SOURCE_MEDIA_ID, TIME } from '../../shared';
+import { focusSoundCues, focusSoundSettings, resolveTimeline, SOURCE_MEDIA_ID, TIME } from '../../shared';
 import type { MediaAsset, Project, TimelineMapping } from '../../shared';
+import { musicClipGain } from '../soundtracks/gain';
+import { FocusAudioPlayer } from './focus-audio';
 
 export type MediaOutput = 'preview' | 'export';
 interface MediaPlayer { element: HTMLMediaElement; source?: MediaElementAudioSourceNode; gain?: GainNode; playing: boolean; pending: boolean; }
@@ -75,6 +77,8 @@ export class TimelineMediaController {
   private activeSegment?: string;
   private disposed = false;
   private active?: HTMLVideoElement;
+  private focusAudio?: FocusAudioPlayer;
+  private continuousSilence?: ConstantSourceNode;
 
   private constructor(private readonly output: MediaOutput) {}
 
@@ -100,17 +104,25 @@ export class TimelineMediaController {
   get video(): HTMLVideoElement | null { return this.active ?? null; }
   get audioStream(): MediaStream | undefined { return this.destination?.stream; }
 
-  async prepareAudio(project: Project): Promise<void> {
-    if (!this.audio && (project.hasAudio || (project.editing?.music.length ?? 0) > 0 || project.mediaAssets?.some((asset) => asset.hasAudio))) {
+  async prepareAudio(project: Project, signal?: AbortSignal): Promise<void> {
+    const hasFocusAudio = focusSoundCues(project).length > 0 && focusSoundSettings(project.settings).volume > 0;
+    if (!this.audio && (project.hasAudio || (project.editing?.music.length ?? 0) > 0 || project.mediaAssets?.some((asset) => asset.hasAudio) || hasFocusAudio)) {
       this.audio = new AudioContext();
-      if (this.output === 'export') this.destination = this.audio.createMediaStreamDestination();
+      if (this.output === 'export') {
+        this.destination = this.audio.createMediaStreamDestination();
+        this.continuousSilence = this.audio.createConstantSource();
+        this.continuousSilence.offset.value = 0;
+        this.continuousSilence.connect(this.destination); this.continuousSilence.start();
+      }
       const destination = this.destination ?? this.audio.destination;
       for (const player of this.players.values()) {
         player.source = this.audio.createMediaElementSource(player.element); player.gain = this.audio.createGain();
         player.element.volume = 1; player.element.muted = false;
         player.gain.gain.value = 0; player.source.connect(player.gain); player.gain.connect(destination);
       }
+      this.focusAudio = new FocusAudioPlayer(this.audio, destination);
     }
+    await this.focusAudio?.prepare(project, signal);
     if (this.audio?.state === 'suspended') await this.audio.resume();
   }
 
@@ -127,6 +139,7 @@ export class TimelineMediaController {
   }
 
   sync(project: Project, time: number, playing: boolean, muted: boolean): TimelineMapping {
+    this.focusAudio?.sync(project, time, playing, muted);
     const mapping = resolveTimeline(project, time);
     const changed = this.activeSegment !== mapping.segment.id;
     this.activeSegment = mapping.segment.id;
@@ -143,7 +156,7 @@ export class TimelineMediaController {
       const id = musicPlayerId(music.id);
       const player = this.players.get(id); if (!player) continue;
       activeIds.add(id);
-      this.setPlayer(player, music.sourceIn + time - music.start, 1, muted ? 0 : music.volume, playing, !playing);
+      this.setPlayer(player, music.sourceIn + time - music.start, 1, muted ? 0 : musicClipGain(music, time), playing, !playing);
     }
     for (const [id, player] of this.players) if (!activeIds.has(id)) { player.element.pause(); player.playing = false; if (player.gain) player.gain.gain.value = 0; }
     return mapping;
@@ -163,10 +176,12 @@ export class TimelineMediaController {
     await Promise.all(operations);
   }
 
-  pause(): void { for (const player of this.players.values()) { player.element.pause(); player.playing = false; } }
+  pause(): void { for (const player of this.players.values()) { player.element.pause(); player.playing = false; } this.focusAudio?.pause(); }
 
   async dispose(): Promise<void> {
     this.disposed = true; this.pause();
+    this.focusAudio?.dispose();
+    this.continuousSilence?.stop(); this.continuousSilence?.disconnect(); this.continuousSilence = undefined;
     for (const player of this.players.values()) { player.source?.disconnect(); player.gain?.disconnect(); releaseMedia(player.element); }
     this.players.clear(); this.active = undefined;
     if (this.audio && this.audio.state !== 'closed') await this.audio.close();

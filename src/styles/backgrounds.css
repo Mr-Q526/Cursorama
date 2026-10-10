@@ -13,7 +13,7 @@
 .neutral-grid { margin-top: 18px; }
 .background-selected { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 10px; margin: 20px 0 0; }
 .background-selected > span { color: var(--text-tertiary); }
-.background-selected > strong { font-weight: 500; color: var(--text-secondary); }
+.background-selected > strong { font-weight: 500; color: var(--text-secondary); max-width: 65%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wallpaper-note { margin: 11px 0 0; font-size: 9px; }
 .background-more-button { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 38px; margin-top: 16px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-background); color: var(--text-secondary); font-size: 11px; }
 .background-more-button > span:first-of-type { flex: 1; text-align: left; }
@@ -37,19 +37,37 @@
 .background-library-option strong { font-size: 11px; }
 .background-library-option small { font-size: 9px; line-height: 1.5; padding-top: 4px; }
 .background-library-option:focus-visible { outline-offset: 0; }
-.background-library-selection { min-width: 0; padding: 17px; border: 1px solid var(--line); border-radius: 12px; background: var(--tone-95); align-self: start; }
+.background-library-selection { min-width: 0; min-height: 0; padding: 17px; border: 1px solid var(--line); border-radius: 12px; background: var(--tone-95); overflow: auto; }
 .background-library-eyebrow { margin: 0 0 13px; color: var(--text-secondary); font-size: 10px; }
 .background-library-preview { aspect-ratio: 16 / 10; overflow: hidden; border-radius: 7px; box-shadow: 0 5px 15px #00000012; }
 .background-library-preview img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .background-library-selection-details { margin-top: 20px; }
 .background-library-collection { color: var(--text-tertiary); font-size: 9px; }
-.background-library-selection h3 { margin: 7px 0 8px; color: var(--text-primary); font-size: 17px; font-weight: 500; }
+.background-library-selection h3 { margin: 7px 0 8px; color: var(--text-primary); font-size: 17px; font-weight: 500; overflow-wrap: anywhere; }
 .background-library-selection-details p { margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.8; }
 .background-library-artwork { display: flex; align-items: center; gap: 7px; margin: 23px 0 0; padding-top: 15px; border-top: 1px solid var(--line); color: var(--text-tertiary); font-size: 10px; line-height: 1.8; }
 .background-library-applied { display: flex; align-items: center; gap: 7px; margin: 14px 0 0; color: var(--text-secondary); font-size: 10px; }
 .background-library-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--line); flex-shrink: 0; }
 .background-library-footer p { margin: 0; font-size: 10px; color: var(--text-tertiary); line-height: 1.8; }
 .background-library-footer .primary-button { min-width: 84px; min-height: 34px; justify-content: center; }
+.custom-background-heading { display: flex; align-items: center; gap: 8px; margin: 0 0 13px; font-size: 11px; color: var(--text-secondary); }
+.custom-background-upload { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 106px; padding: 15px; border: 1px dashed var(--tone-75); border-radius: 9px; background: var(--panel-background); color: var(--text-secondary); }
+.custom-background-upload:hover:not(:disabled) { border-color: var(--text-secondary); background: var(--tone-95); }
+.custom-background-upload strong { font-size: 11px; font-weight: 500; }
+.custom-background-upload small { font-size: 9px; color: var(--text-tertiary); }
+.custom-background-card { display: flex; align-items: center; gap: 11px; width: 100%; padding: 5px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-background); text-align: left; }
+.custom-background-card.selected { border-color: var(--text-secondary); box-shadow: 0 0 0 1px var(--tone-85); }
+.custom-background-card:hover:not(:disabled) { background: var(--tone-95); }
+.custom-background-thumbnail { display: block; position: relative; width: 74px; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 5px; flex-shrink: 0; background: var(--tone-90); }
+.custom-background-thumbnail img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.custom-background-image-label { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 0; }
+.custom-background-image-label strong { font-size: 10px; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.custom-background-image-label small { font-size: 9px; color: var(--text-tertiary); }
+.custom-background-actions { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 0; gap: 10px; }
+.custom-background-actions .text-button { display: flex; align-items: center; gap: 6px; font-size: 10px; padding: 4px 0; }
+.custom-background-actions .icon-button { width: 27px; height: 27px; }
+.custom-background-note { margin: 10px 0 0; font-size: 9px; line-height: 1.8; color: var(--text-tertiary); }
+.background-library-selection .custom-background-control { margin-top: 21px; padding-top: 18px; border-top: 1px solid var(--line); }
 @media (max-width: 1000px) {
   .background-library-layout { grid-template-columns: minmax(0, 1fr) 220px; gap: 18px; }
   .background-library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

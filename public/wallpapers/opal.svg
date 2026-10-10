@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d7deeb"/><stop offset=".5" stop-color="#e8dce5"/><stop offset="1" stop-color="#a2b7d0"/></linearGradient>
+    <linearGradient id="curve" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f7ece8"/><stop offset=".25" stop-color="#e2bfd3"/><stop offset=".58" stop-color="#c9bee3"/><stop offset=".81" stop-color="#90bdd7"/><stop offset="1" stop-color="#ccdaec"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#8fa5c7"/><stop offset=".32" stop-color="#c9d4e8"/><stop offset=".6" stop-color="#f7e5df"/><stop offset="1" stop-color="#dba9ca"/></linearGradient>
+    <radialGradient id="shine" cx=".1" cy=".05" r=".85"><stop stop-color="#fff" stop-opacity=".85"/><stop offset=".45" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="-.2" y="-.2" width="1.4" height="1.4"><feDropShadow dx="15" dy="45" stdDeviation="65" flood-color="#5a658a" flood-opacity=".25"/></filter>
+  </defs>
+  <path fill="url(#base)" d="M0 0h3840v2160H0z"/>
+  <g filter="url(#shadow)">
+    <path fill="url(#curve)" d="M-200 1350C750 1210 250-320 1360-330s520 1260 1480 1230 1510-680 1340 500-1640 1300-2470 840S150 2360-200 1350Z"/>
+    <path fill="url(#edge)" d="M-340 2440C750 1590 1990 2060 2000 1240s-1030-1050-560-1630c-740 540-260 1420 160 1740S2390 1870 2350 2440Z"/>
+    <path fill="url(#curve)" d="M3900-330c-960 440-1070 950-450 1590s-700 910-900 1280h1450Z"/>
+  </g>
+  <path fill="url(#shine)" d="M0 0h3840v2160H0z"/>
+  <path fill="none" stroke="#fff8ef" stroke-opacity=".65" stroke-width="4" d="M-200 1350C750 1210 250-320 1360-330M3900-330c-960 440-1070 950-450 1590"/>
+</svg>

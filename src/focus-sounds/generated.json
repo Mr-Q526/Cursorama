@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "format": "wav",
+  "sampleRate": 44100,
+  "channels": 2,
+  "bitDepth": 16,
+  "sounds": {
+    "soft-tap": {
+      "duration": 0.24,
+      "bytes": 42380,
+      "sha256": "25d79bfa78ed2961c6937abca2bb1c0e6510a8cfa70f0f27aa3b1c926017ca25"
+    },
+    "air-sweep": {
+      "duration": 0.48,
+      "bytes": 84716,
+      "sha256": "70fb18fd533bec47e07c1c750b5f2b998491cbc51263b39668b426cb45477dd4"
+    },
+    "glass-chime": {
+      "duration": 0.6,
+      "bytes": 105884,
+      "sha256": "c7889e4a99f35b73eb8772dc6751af34c92cf58d30c528e006e6790fef85cf1e"
+    },
+    "gentle-pop": {
+      "duration": 0.3,
+      "bytes": 52964,
+      "sha256": "dd787d07d72884e44bca9e55a53c1e202a707711ee290a81f27ec7044f7b3797"
+    }
+  }
+}

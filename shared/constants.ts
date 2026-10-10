@@ -1,4 +1,5 @@
 import type { AspectRatio, BackgroundId, EffectMode, ExportResolution, VisualSettings } from './types';
+import { DEFAULT_FOCUS_SOUND } from './focus-sound';
 
 export const APP_PORT = 5178;
 export const IPC = {
@@ -41,6 +42,7 @@ export const IPC = {
   updateAutomatic: 'updates:automatic',
   updatePage: 'updates:page',
   updateState: 'updates:state',
+  aboutLink: 'about:open-link',
 } as const;
 
 export const TIME = {
@@ -57,10 +59,20 @@ export const TIME = {
 export const CAPTURE_TIMING = { defaultCountdown: 3, choices: [0, 3, 5, 10], maximumCountdown: 60 } as const;
 
 export const MOTION = {
-  leadIn: 0.45,
-  holdAfterClick: 2.0,
-  mergeGap: 1.5,
-  settleDuration: 0.65,
+  leadIn: 0,
+  holdAfterClick: 1.6,
+  holdAfterTyping: 2.2,
+  holdAfterScroll: 1.4,
+  holdAfterDrag: 1.5,
+  mergeGap: 0.3,
+  settleDuration: 0.85,
+  focusPan: 0.6,
+  focusDeadZone: 0.06,
+  focusRegionCoverage: 0.78,
+  maximumZoom: 4,
+  typingTilt: 0.15,
+  zoomInRatio: 0.7,
+  pointerSmoothingSamples: 6,
   smoothingWindow: 0.3,
   cursorLag: 0.07,
   edgeInset: 0.03,
@@ -74,6 +86,7 @@ export const DEFAULT_SETTINGS: VisualSettings = {
   backgroundBlur: 0, backgroundDim: 0,
   edgeGlass: 55, shadow: 45, aspect: '16:9', cursor: 'arrow', cursorSize: 28,
   clickEffect: true, spotlight: false,
+  focusSound: { ...DEFAULT_FOCUS_SOUND },
 };
 
 export const PRESETS: Record<EffectMode, Pick<VisualSettings, 'zoom' | 'tilt'>> = {
@@ -90,6 +103,7 @@ export const BACKGROUNDS: Record<BackgroundId, readonly [string, string, string]
   charcoal: ['#222222', '#464646', '#171717'],
   ink: ['#080808', '#202020', '#000000'],
   paper: ['#eeeeee', '#ffffff', '#dedede'],
+  custom: ['#eeeeee', '#ffffff', '#dedede'],
   bloom: ['#071830', '#367dc8', '#193e81'],
   silk: ['#f4f4f3', '#d7d8da', '#9a9da2'],
   aurora: ['#c3b1e1', '#8766bf', '#171d50'],
@@ -102,9 +116,21 @@ export const BACKGROUNDS: Record<BackgroundId, readonly [string, string, string]
   slate: ['#202226', '#474b53', '#111318'],
   mist: ['#e9e9e6', '#f5f4f0', '#b6b7b5'],
   midnight: ['#10111c', '#292640', '#080910'],
+  ripple: ['#092846', '#427eaf', '#18374e'],
+  opal: ['#d7d7e8', '#efdedf', '#abbfd3'],
+  mesh: ['#292242', '#946187', '#385877'],
+  frosted: ['#edf2f4', '#c8d6e0', '#8ba7bf'],
+  alpine: ['#a8c5e4', '#dfe5ee', '#627b9e'],
+  twilight: ['#ce9286', '#ecc9a9', '#5d5874'],
+  lavender: ['#c5bfd9', '#a695bb', '#554d79'],
+  shore: ['#263952', '#66849c', '#162b43'],
+  mono: ['#111113', '#59595b', '#d9d9d8'],
+  linen: ['#eae3d9', '#f7f2e9', '#c4b6a3'],
+  eclipse: ['#101113', '#555960', '#0d1014'],
+  horizon: ['#1a1b1d', '#5c5d61', '#171819'],
 };
 
-export const WALLPAPER_IDS = ['bloom', 'silk', 'aurora', 'dunes', 'cobalt', 'prism', 'coast', 'sunrise', 'pearl', 'slate', 'mist', 'midnight'] as const;
+export const WALLPAPER_IDS = ['bloom', 'silk', 'aurora', 'dunes', 'cobalt', 'prism', 'coast', 'sunrise', 'pearl', 'slate', 'mist', 'midnight', 'ripple', 'opal', 'mesh', 'frosted', 'alpine', 'twilight', 'lavender', 'shore', 'mono', 'linen', 'eclipse', 'horizon'] as const;
 export const NEUTRAL_BACKGROUND_IDS = ['silver', 'smoke', 'graphite', 'charcoal', 'ink', 'paper'] as const;
 export const BACKGROUND_LIMITS = { blur: 24, dim: 60, referenceHeight: 1080, blurOverscan: 3 } as const;
 export const FRAME_LIMITS = { edgeGlass: 100, referenceWidth: 1280, glassOutset: 16, glassBlur: 14, glassFeather: 2 } as const;

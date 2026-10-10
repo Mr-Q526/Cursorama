@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, session, shell, Tray, type IpcMainInvokeEvent } from 'electron';
-import { APP_PORT, IPC, RECORDING_CONTROLS, UPDATE_CONFIG } from '../shared';
+import { APP_PORT, IPC, RECORDING_CONTROLS, UPDATE_CONFIG, resolveAboutLink } from '../shared';
 import type { CaptureOptions, CaptureSource, ExportRequest, ProjectData, StorageSettings, StorageTarget } from '../shared';
 import { desktopCatalog } from './catalog';
 import { exportVideo, openProject } from './export';
@@ -96,6 +96,12 @@ function registerIPC(): void {
   ipcMain.handle(IPC.updateInstall, (event) => requireUpdates(event).install());
   ipcMain.handle(IPC.updateAutomatic, (event, enabled: boolean) => { if (typeof enabled !== 'boolean') throw new Error(desktopCatalog.invalidRequest); return requireUpdates(event).setAutomatic(enabled); });
   ipcMain.handle(IPC.updatePage, (event) => { requireUpdates(event); return shell.openExternal(UPDATE_CONFIG.releasePage); });
+  ipcMain.handle(IPC.aboutLink, (event, target: unknown) => {
+    if (event.sender !== mainWindow?.webContents || event.senderFrame !== mainWindow?.webContents.mainFrame) throw new Error(desktopCatalog.invalidRequest);
+    const url = resolveAboutLink(target);
+    if (!url) throw new Error(desktopCatalog.invalidRequest);
+    return shell.openExternal(url);
+  });
   ipcMain.handle(IPC.sources, () => sources());
   ipcMain.handle(IPC.select, async (_event, options: CaptureOptions) => {
     if (!options || typeof options.sourceId !== 'string' || ![30, 60].includes(options.fps)) throw new Error(desktopCatalog.invalidRequest);
@@ -210,11 +216,14 @@ app.whenReady().then(async () => {
       if (!document.querySelector('.empty-workspace') || !sidebar || sidebar.querySelector('.library-tabs, .library-item, .library-location') || document.querySelector('.preview-stage canvas, .app-footer, .theme-toggle') || !window.desktop || document.title !== 'Cursorama') return false;
       if (document.querySelectorAll('.window-controls button').length !== 3 || getComputedStyle(document.querySelector('.app-header')).getPropertyValue('-webkit-app-region') !== 'drag') return false;
       sidebar.querySelector('[data-action="open-settings"]').click(); await wait();
-      if (!document.querySelector('.settings-dialog [aria-label="浅色主题"]') || !document.querySelector('.settings-dialog #storage-projects') || !document.querySelector('.settings-dialog #storage-exports') || !document.querySelector('.empty-workspace')) return false;
+      if (document.querySelectorAll('.settings-dialog input[name="app-theme"]').length !== 2 || document.querySelectorAll('.settings-navigation [role="tab"]').length !== 3 || !document.querySelector('#settings-panel-appearance') || !document.querySelector('.empty-workspace')) return false;
       if (document.querySelector('.window-controls').closest('[inert]') || !document.querySelector('.header-actions').inert) return false;
+      document.querySelector('[data-settings-page="storage"]').click(); await wait();
+      if (!document.querySelector('.settings-dialog #storage-projects') || !document.querySelector('.settings-dialog #storage-exports')) return false;
+      document.querySelector('[data-settings-page="about"]').click(); await wait();
       const updateState = await window.desktop.getUpdateState();
       if (!document.querySelector('.update-settings [data-action="check-updates"]') || updateState.status !== 'unsupported' || !document.querySelector('.update-settings [data-update-status="unsupported"]')) return false;
-      document.querySelector('.settings-dialog [aria-label="关闭"]').click(); await wait();
+      document.querySelector('.settings-dialog .modal-heading button').click(); await wait();
       sidebar.querySelector('[data-page="library"]').click(); await wait();
       if (!document.querySelector('.library-page .library-tabs') || sidebar.querySelector('.library-tabs')) return false;
       sidebar.querySelector('[data-page="workspace"]').click(); await wait();

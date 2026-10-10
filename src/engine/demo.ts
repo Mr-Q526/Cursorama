@@ -30,7 +30,7 @@ export function createDemoProject(): Project {
     samples.push({ time: to[0], x: to[1], y: to[2], kind: to[3] ? 'click' : 'move', button: to[3] ? 'left' : undefined });
   }
   return {
-    schemaVersion: 1, name: t.editor.demoName, duration: DEMO.duration,
+    schemaVersion: 1, name: t.editor.demoName, duration: DEMO.duration, frameRate: DEMO.fps,
     width: DEMO.width, height: DEMO.height, samples,
     clips: generateClips(samples, DEMO.duration, DEFAULT_SETTINGS.mode),
     settings: { ...DEFAULT_SETTINGS, cursor: 'none' }, trimStart: 0, trimEnd: DEMO.duration,

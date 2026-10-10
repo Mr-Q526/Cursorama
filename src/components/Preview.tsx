@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { CircleIcon } from '@phosphor-icons/react';
-import type { Project } from '../../shared';
+
+import type { AspectRatio, Project } from '../../shared';
 import { isProjectFrameReady, previewDimensions, projectPreviewRevision, VideoRenderer, wallpaperRevision } from '../engine';
 import type { PlaybackController } from '../hooks';
 import { t } from '../i18n';
@@ -9,13 +9,14 @@ import { PlaybackControls } from './PlaybackControls';
 
 export interface PreviewProps {
   project: Project; playback: PlaybackController; original: boolean;
-  onOriginal: (value: boolean) => void;
+  onOriginal: (value: boolean) => void; onAspect: (value: AspectRatio) => void;
 }
 
-const PREVIEW_INSET = { horizontal: 44, vertical: 36 } as const;
+const PREVIEW_INSET = { horizontal: 20, vertical: 14 } as const;
+const ASPECT_RATIOS: readonly AspectRatio[] = ['16:9', '9:16', '1:1', '4:3'];
 const CONTROLS_HIDE_DELAY = 2400;
 
-export function Preview({ project, playback, original, onOriginal }: PreviewProps) {
+export function Preview({ project, playback, original, onOriginal, onAspect }: PreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
@@ -46,7 +47,7 @@ export function Preview({ project, playback, original, onOriginal }: PreviewProp
       const videoTime = playback.videoRef.current?.currentTime ?? -1;
       const seeking = playback.videoRef.current?.seeking ?? false;
       const theme = document.documentElement.dataset.theme;
-      const backgroundRevision = wallpaperRevision(current.settings.background);
+      const backgroundRevision = wallpaperRevision(current.settings.background, current.backgroundImageAsset);
       if (current !== lastProject || showOriginal !== lastOriginal || time !== lastTime || videoTime !== lastVideoTime || seeking !== lastSeeking || playback.videoRef.current !== lastVideo || canvas.width !== lastWidth || canvas.height !== lastHeight || readyState !== lastReadyState || theme !== lastTheme || backgroundRevision !== lastBackgroundRevision) {
         renderer.render(current, time, playback.videoRef.current, showOriginal);
         if (isProjectFrameReady(current, time, playback.videoRef.current)) canvas.dataset.projectRevision = projectPreviewRevision(current);
@@ -95,7 +96,7 @@ export function Preview({ project, playback, original, onOriginal }: PreviewProp
   };
 
   return <section className="preview-panel" aria-label={t.editor.preview}>
-    <div className="preview-toolbar"><Segmented label={t.editor.preview} value={original ? 'original' : 'styled'} onChange={(value) => onOriginal(value === 'original')} options={[{ value: 'styled', label: t.editor.styled }, { value: 'original', label: t.editor.original }]} /><div className="preview-meta"><CircleIcon size={9} weight="fill" /><span>{project.width} × {project.height}</span><span className="meta-separator" />{project.sourceType === 'demo' ? t.editor.demoBadge : t.editor.localOnly}</div></div>
+    <div className="preview-toolbar"><Segmented label={t.editor.preview} value={original ? 'original' : 'styled'} onChange={(value) => onOriginal(value === 'original')} options={[{ value: 'styled', label: t.editor.styled }, { value: 'original', label: t.editor.original }]} /><select className="studio-aspect" aria-label={t.editor.aspectRatio} value={project.settings.aspect} onChange={(event) => onAspect(event.currentTarget.value as AspectRatio)}>{ASPECT_RATIOS.map((aspect) => <option key={aspect} value={aspect}>{aspect}</option>)}</select></div>
     {project.sourceType === 'demo' && <p className="demo-hint">{t.editor.demoHint}</p>}
     <div className="preview-stage" ref={stageRef} data-controls-visible={controlsVisible || !playback.playing} onPointerMove={showControls} onFocusCapture={showControls}><canvas aria-label={t.editor.preview} ref={canvasRef} onDoubleClick={() => void toggleFullscreen()} /><div className="stage-corners" aria-hidden="true" />{fullscreen && <PlaybackControls project={project} playback={playback} fullscreen onFullscreen={() => void toggleFullscreen()} className="fullscreen-playback" />}</div>
     {!fullscreen && <PlaybackControls project={project} playback={playback} fullscreen={false} onFullscreen={() => void toggleFullscreen()} className="playback-bar" />}

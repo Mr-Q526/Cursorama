@@ -11,10 +11,10 @@ const QA = { poll: 40, timeout: 30_000, paint: 180, width: 640, height: 360, vid
 const BLUE = { red: 35, green: 80, blue: 195 } as const;
 const RED = { red: 185, green: 45, blue: 45 } as const;
 
-async function until<T>(read: () => T | undefined | Promise<T | undefined>): Promise<T> {
+async function until<T>(read: () => T | undefined | Promise<T | undefined>, stage = 'editing'): Promise<T> {
   const deadline = performance.now() + QA.timeout;
   while (performance.now() < deadline) { const result = await read(); if (result !== undefined) return result; await new Promise<void>((resolve) => setTimeout(resolve, QA.poll)); }
-  throw new Error(`QA_EDIT_TIMEOUT:${document.querySelector('.toast')?.textContent}`);
+  throw new Error(`QA_EDIT_TIMEOUT:${stage}:${JSON.stringify({ toast: document.querySelector('.toast')?.textContent, segments: document.querySelectorAll('.timeline-segment').length, progress: document.querySelector<HTMLInputElement>('.playback-progress')?.value, project: document.querySelector<HTMLInputElement>('.project-name')?.value })}`);
 }
 
 function button(label: string, root: Document | HTMLElement = document): HTMLButtonElement {
@@ -115,10 +115,14 @@ async function verifyExport(project: Project, bytes: ArrayBuffer): Promise<Pick<
     const input = audio.createMediaElementSource(video); const analyser = audio.createAnalyser(); const gain = audio.createGain(); gain.gain.value = 0;
     input.connect(analyser); analyser.connect(gain); gain.connect(audio.destination); await audio.resume();
     await seekVideo(video, 0.15); await video.play();
-    await new Promise<void>((resolve) => setTimeout(resolve, 250));
-    const waveform = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(waveform);
-    const audioLevel = Math.sqrt(waveform.reduce((sum, sample) => sum + sample * sample, 0) / waveform.length);
-    if (audioLevel < QA.audioMinimum) throw new Error(`QA_EDIT_MUSIC_SILENT:${audioLevel}`);
+    const waveform = new Float32Array(analyser.fftSize);
+    const audioLevel = await until(() => {
+      analyser.getFloatTimeDomainData(waveform);
+      const level = Math.sqrt(waveform.reduce((sum, sample) => sum + sample * sample, 0) / waveform.length);
+      if (level >= QA.audioMinimum) return level;
+      if (video.ended) throw new Error(`QA_EDIT_MUSIC_SILENT:${level}`);
+      return undefined;
+    });
     if (Math.abs(video.duration - duration) > 0.12) throw new Error(`QA_EDIT_EXPORT_DURATION:${video.duration}/${duration}`);
     return { decodedDuration: video.duration, subtitlePixels, audioLevel, finalSegment: true };
   } finally { video.pause(); video.removeAttribute('src'); video.load(); await audio.close(); URL.revokeObjectURL(url); }
@@ -175,13 +179,20 @@ export async function runEditingUIQA(): Promise<EditingUIReport> {
 export async function restoreEditingUIQA(id: string): Promise<boolean> {
   const desktop = window.desktop; if (!desktop) throw new Error('QA_EDIT_DESKTOP_REQUIRED');
   button(t.navigation.library).click();
-  const projectButton = await until(() => document.querySelector<HTMLButtonElement>(`.library-page [data-project-id="${id}"]`) ?? undefined); projectButton.click();
-  await until(() => document.querySelectorAll('.timeline-segment').length === 3 && !document.querySelector('.processing-overlay') ? true : undefined);
+  const projectButton = await until(() => document.querySelector<HTMLButtonElement>(`.library-page [data-project-id="${id}"]`) ?? undefined, 'restore-library-project'); projectButton.click();
+  await until(() => document.querySelectorAll('.timeline-segment').length === 3 && !document.querySelector('.processing-overlay') ? true : undefined, 'restore-workspace');
   const stored = await desktop.openLibraryProject(id);
   if (stored.data.mediaAssets?.length !== 3 || stored.data.editing?.music.length !== 1 || stored.data.editing.subtitles[0]?.text !== QA.subtitle) throw new Error('QA_EDIT_RELOAD_LOST_MEDIA');
-  seek(1); await new Promise<void>((resolve) => setTimeout(resolve, QA.paint));
+  const frameStarted = performance.now();
+  seek(1);
   const preview = document.querySelector<HTMLCanvasElement>('.preview-stage canvas'); if (!preview) throw new Error('QA_EDIT_RELOAD_PREVIEW_MISSING');
-  const sample = document.createElement('canvas'); sample.width = QA.width; sample.height = QA.height; const context = sample.getContext('2d'); if (!context) throw new Error('QA_EDIT_CONTEXT_MISSING'); context.drawImage(preview, 0, 0, QA.width, QA.height);
-  if (!pixelMatches(context, BLUE)) throw new Error('QA_EDIT_RELOAD_IMPORTED_VIDEO_MISSING');
+  const sample = document.createElement('canvas'); sample.width = QA.width; sample.height = QA.height; const context = sample.getContext('2d'); if (!context) throw new Error('QA_EDIT_CONTEXT_MISSING');
+  // 重开时媒体异步解码，以实际蓝色素材帧为准，避免固定延时在机器繁忙时误报。
+  await until(() => {
+    if (Number(document.querySelector<HTMLInputElement>('.playback-progress')?.value) !== 1) seek(1);
+    context.drawImage(preview, 0, 0, QA.width, QA.height);
+    return pixelMatches(context, BLUE) ? true : undefined;
+  }, 'restore-blue-frame');
+  console.info('QA_EDIT_RELOAD_FRAME_READY', Math.round(performance.now() - frameStarted));
   return true;
 }

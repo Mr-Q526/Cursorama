@@ -1,0 +1,26 @@
+.focus-sound-control { min-width: 0; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+.focus-sound-control summary { display: flex; align-items: center; gap: 7px; cursor: pointer; list-style: none; color: var(--text-primary); font-size: 11px; }
+.focus-sound-control summary::-webkit-details-marker { display: none; }
+.focus-sound-control summary small { margin-left: auto; font-size: 9px; color: var(--text-tertiary); }
+.focus-sound-control summary svg { color: var(--text-tertiary); transition: transform 0.15s ease; }
+.focus-sound-control[open] summary svg { transform: rotate(180deg); }
+.focus-sound-body { padding-top: 18px; }
+.focus-sound-control .toggle-row { margin-bottom: 15px; }
+.focus-sound-control .toggle-row small { max-width: 192px; line-height: 1.7; }
+.focus-sound-options { display: flex; flex-direction: column; gap: 7px; }
+.focus-sound-option { display: grid; grid-template-columns: minmax(0, 1fr) 28px; grid-template-rows: auto auto; align-items: center; gap: 2px 5px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 9px 7px; background: var(--tone-100); }
+.focus-sound-option.selected { border-color: var(--tone-65); background: var(--tone-95); }
+.focus-sound-select { grid-column: 1; grid-row: 1 / 3; display: flex; align-items: center; gap: 9px; min-width: 0; text-align: left; background: transparent; padding: 0; }
+.focus-sound-glyph { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 29px; height: 29px; border: 1px solid var(--line); border-radius: 7px; color: var(--text-secondary); background: var(--tone-100); }
+.focus-sound-select > span:last-of-type { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.focus-sound-select strong { font-size: 11px; font-weight: 550; color: var(--text-primary); }
+.focus-sound-select small { font-size: 9px; color: var(--text-tertiary); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.focus-sound-check { flex-shrink: 0; color: var(--text-secondary); }
+.focus-sound-preview { display: inline-flex; align-items: center; justify-content: center; grid-column: 2; grid-row: 1; width: 26px; height: 24px; background: transparent; color: var(--text-secondary); border-radius: 5px; }
+.focus-sound-preview:hover { background: var(--tone-90); color: var(--text-primary); }
+.focus-sound-option.playing .focus-sound-preview { background: var(--tone-25); color: var(--tone-100); }
+.focus-sound-duration { grid-column: 2; grid-row: 2; font-size: 8px; text-align: center; white-space: nowrap; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.focus-sound-control .slider-stack { margin-top: 15px; }
+.focus-sound-error { color: var(--text-primary); font-size: 10px; line-height: 1.7; }
+.focus-sound-loading { animation: focus-sound-spin 1.2s linear infinite; }
+@keyframes focus-sound-spin { to { transform: rotate(360deg); } }

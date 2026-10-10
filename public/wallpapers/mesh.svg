@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#302443"/><stop offset=".5" stop-color="#664f78"/><stop offset="1" stop-color="#1d385a"/></linearGradient>
+    <radialGradient id="rose" cx=".7" cy=".03" r=".85"><stop stop-color="#f2b4a6"/><stop offset=".37" stop-color="#ae748d" stop-opacity=".85"/><stop offset="1" stop-color="#ae748d" stop-opacity="0"/></radialGradient>
+    <radialGradient id="blue" cx=".17" cy=".95" r=".9"><stop stop-color="#94b7d6"/><stop offset=".42" stop-color="#547caa" stop-opacity=".75"/><stop offset="1" stop-color="#547caa" stop-opacity="0"/></radialGradient>
+    <radialGradient id="violet" cx=".23" cy=".15" r=".78"><stop stop-color="#b4a3cd" stop-opacity=".85"/><stop offset="1" stop-color="#b4a3cd" stop-opacity="0"/></radialGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="50"/></filter>
+  </defs>
+  <path fill="url(#base)" d="M0 0h3840v2160H0z"/>
+  <path fill="url(#rose)" d="M0 0h3840v2160H0z"/>
+  <path fill="url(#blue)" d="M0 0h3840v2160H0z"/>
+  <path fill="url(#violet)" d="M0 0h3840v2160H0z"/>
+  <path fill="#181f3b" fill-opacity=".25" filter="url(#soft)" d="M-500 1290c1200-140 1490-1220 2250-480s1240 250 2430 300v1540H-500Z"/>
+</svg>

@@ -1,21 +1,46 @@
-.update-version-row { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 22px; }
-.update-version-row > span { color: var(--text-tertiary); font-size: 12px; }
-.update-version-row strong { display: block; color: var(--text-primary); font-size: 20px; margin-top: 8px; font-variant-numeric: tabular-nums; }
-.update-preference { border: 0; padding: 0; margin: 0; min-width: 0; }
-.update-preference:disabled { opacity: .55; }
-.update-status { font-size: 12px; line-height: 1.9; color: var(--text-secondary); margin: 20px 0 0; }
-.update-offer { background: var(--panel-background); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-top: 16px; }
-.update-offer > strong { font-size: 13px; color: var(--text-primary); }
-.update-offer > .primary-button { margin-top: 17px; }
-.update-offer details { margin-top: 13px; font-size: 12px; color: var(--text-secondary); }
-.update-offer summary { cursor: pointer; }
-.update-notes { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 170px; overflow: auto; line-height: 1.9; font-size: 11px; }
-.update-progress { margin-top: 18px; }
-.update-progress progress { display: block; width: 100%; height: 6px; appearance: none; border: 0; }
+.update-version-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; margin-bottom: 18px; }
+.update-current-version { display: inline-flex; align-items: center; min-height: 29px; padding: 0 11px; border: 1px solid var(--line); border-radius: 6px; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.update-card { padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--shell-background); }
+.update-status { margin: 0; }
+.update-status-heading { display: flex; align-items: center; gap: 9px; color: var(--text-primary); }
+.update-status-heading h3 { margin: 0; font-size: 13px; font-weight: 550; line-height: 1.6; }
+.update-status-heading > svg { flex-shrink: 0; color: var(--text-secondary); }
+.update-description { margin: 7px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.85; }
+.update-version-badge { padding: 3px 7px; border: 1px solid var(--line); border-radius: 5px; color: var(--text-secondary); font-size: 11px; font-variant-numeric: tabular-nums; line-height: 1.4; }
+.update-actions { display: flex; align-items: center; gap: 18px; margin-top: 12px; }
+.update-actions .primary-button { min-height: 36px; }
+.update-actions .text-button { font-size: 12px; }
+.update-error { display: flex; align-items: flex-start; gap: 7px; margin: 10px 0 0; color: var(--danger); font-size: 12px; line-height: 1.85; }
+.update-error > svg { flex-shrink: 0; margin-top: 3px; }
+.update-progress { margin-top: 14px; }
+.update-progress > div { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; color: var(--text-secondary); font-size: 11px; }
+.update-progress strong { font-weight: 550; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.update-progress progress { display: block; width: 100%; height: 5px; appearance: none; border: 0; }
 .update-progress progress::-webkit-progress-bar { background: var(--line); border-radius: 5px; }
-.update-progress progress::-webkit-progress-value { background: var(--text-secondary); border-radius: 5px; }
-.update-progress span { display: block; color: var(--text-tertiary); font-size: 11px; margin-top: 9px; }
-.update-release-link { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); margin-top: 20px; text-decoration: none; }
+.update-progress progress::-webkit-progress-value { background: var(--text-primary); border-radius: 5px; transition: width .2s ease; }
+.update-progress progress::-moz-progress-bar { background: var(--text-primary); border-radius: 5px; }
+.update-preference { border: 0; padding: 14px 0 0; margin: 0; min-width: 0; }
+.update-preference .toggle-row { margin: 0; align-items: center; }
+.update-preference .control-label { color: var(--text-primary); font-size: 12px; }
+.update-preference .toggle-row small { margin-top: 5px; color: var(--text-secondary); font-size: 11px; line-height: 1.8; }
+.update-preference:disabled { opacity: .55; }
+.update-notes { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.update-notes > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; color: var(--text-secondary); font-size: 12px; cursor: pointer; list-style: none; }
+.update-notes > summary::-webkit-details-marker { display: none; }
+.update-notes > summary:hover { color: var(--text-primary); }
+.update-notes > summary > svg { transition: transform .16s; }
+.update-notes[open] > summary { color: var(--text-primary); }
+.update-notes[open] > summary > svg { transform: rotate(180deg); }
+.release-notes { padding: 0 0 16px; color: var(--text-secondary); font-size: 12px; line-height: 1.9; overflow-wrap: anywhere; }
+.release-notes h3 { margin: 17px 0 10px; color: var(--text-primary); font-size: 13px; font-weight: 550; }
+.release-notes p { margin: 10px 0; white-space: pre-line; }
+.release-notes ul, .release-notes ol { margin: 10px 0; padding-left: 19px; }
+.release-notes li { margin: 8px 0; }
+.release-notes strong { color: var(--text-primary); font-weight: 550; }
+.release-notes code { padding: 1px 4px; border-radius: 4px; color: var(--text-primary); background: var(--tone-90); font-size: 11px; }
+.update-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; color: var(--text-secondary); font-size: 10px; }
+.update-release-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; text-decoration: none; }
 .update-release-link:hover { color: var(--text-primary); }
 .update-notice { position: fixed; bottom: 22px; right: 24px; z-index: 15; display: flex; align-items: flex-start; gap: 13px; max-width: 320px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-background); color: var(--text-primary); padding: 17px 20px; box-shadow: 0 12px 45px color-mix(in srgb, var(--tone-10) 15%, transparent); }
 .update-notice strong { display: block; font-size: 12px; margin-bottom: 8px; line-height: 1.7; }
+@media (prefers-reduced-motion: reduce) { .update-settings .spin { animation: none; } }

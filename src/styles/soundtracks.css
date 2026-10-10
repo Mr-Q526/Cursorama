@@ -1,0 +1,35 @@
+.soundtrack-panel { min-width: 0; }
+.soundtrack-intro { margin: 0 0 16px; font-size: 11px; line-height: 1.7; color: var(--text-tertiary); }
+.soundtrack-import { width: 100%; min-height: 36px; justify-content: center; font-size: 11px; margin-bottom: 23px; }
+.soundtrack-library-header { display: flex; align-items: center; justify-content: space-between; color: var(--text-primary); font-size: 11px; font-weight: 550; margin-bottom: 12px; }
+.soundtrack-library-header small { color: var(--text-tertiary); font-size: 10px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.soundtrack-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 7px; margin-bottom: 14px; background: var(--tone-95); }
+.soundtrack-filters button { min-height: 25px; padding: 0 2px; border-radius: 4px; font-size: 10px; background: transparent; color: var(--text-tertiary); white-space: nowrap; }
+.soundtrack-filters button.selected { background: var(--tone-100); color: var(--text-primary); box-shadow: 0 1px 3px color-mix(in srgb, var(--tone-20) 7%, transparent); }
+.soundtrack-filters button:hover { color: var(--text-primary); }
+.soundtrack-list { display: flex; flex-direction: column; gap: 9px; }
+.soundtrack-card { border: 1px solid var(--line); border-radius: 9px; padding: 11px 10px 9px; background: var(--tone-100); }
+.soundtrack-card.playing { border-color: var(--tone-55); background: var(--tone-95); }
+.soundtrack-card-header { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.soundtrack-preview { display: inline-flex; align-items: center; justify-content: center; width: 31px; height: 31px; flex-shrink: 0; border-radius: 50%; color: var(--text-secondary); background: var(--tone-95); }
+.soundtrack-preview:hover:not(:disabled) { background: var(--tone-90); color: var(--text-primary); }
+.soundtrack-card.playing .soundtrack-preview { background: var(--tone-25); color: var(--tone-100); }
+.soundtrack-card-title { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 4px; }
+.soundtrack-card-title strong { font-size: 11px; font-weight: 550; color: var(--text-primary); }
+.soundtrack-card-title span { font-size: 9px; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soundtrack-add { width: 25px; height: 25px; border: 1px solid var(--line); flex-shrink: 0; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); background: var(--tone-100); }
+.soundtrack-add:hover:not(:disabled) { border-color: var(--tone-65); color: var(--text-primary); }
+.soundtrack-waveform { display: flex; align-items: center; justify-content: center; gap: 2px; margin: 12px 0 9px; height: 23px; overflow: hidden; }
+.soundtrack-waveform span { display: block; flex: 1; border-radius: 1px; background: var(--tone-85); min-width: 1px; }
+.soundtrack-waveform span.played { background: var(--tone-35); }
+.soundtrack-card-details { display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.soundtrack-card-details i { font-style: normal; padding: 0 5px; }
+.soundtrack-license { margin: 13px 0 22px; color: var(--text-tertiary); font-size: 9px; line-height: 1.8; }
+.soundtrack-error { color: var(--text-primary); margin: 8px 0; font-size: 10px; line-height: 1.7; }
+.soundtrack-current { border-top: 1px solid var(--line); padding-top: 18px; }
+.soundtrack-current .section-caption { margin-top: 0; }
+.soundtrack-used-list { display: flex; flex-direction: column; gap: 6px; }
+.soundtrack-used-list button { display: flex; align-items: center; min-height: 33px; gap: 7px; border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; text-align: left; background: var(--tone-100); color: var(--text-secondary); font-size: 10px; }
+.soundtrack-used-list button span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.soundtrack-used-list button small { font-size: 9px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.soundtrack-position { display: flex; align-items: center; justify-content: space-between; margin: 15px 0 5px; font-size: 10px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }

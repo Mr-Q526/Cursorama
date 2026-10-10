@@ -6,7 +6,7 @@ import { generateClips } from './motion';
 import { recordingBitrate } from './quality';
 import { RecordingClock } from './recording-clock';
 
-const RECORDING = { audioBitrate: 192_000, minimumSampleGap: 0.012 } as const;
+const RECORDING = { audioBitrate: 192_000, minimumSampleGap: 0.012, startupTimeout: 30_000 } as const;
 
 export interface RecordingSession {
   stop(): Promise<Project>;
@@ -61,6 +61,20 @@ function waitForCountdownTick(signal: AbortSignal): Promise<void> {
     const abort = (): void => { clearTimeout(timer); reject(new DOMException(t.recording.cancelled, 'AbortError')); };
     const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, TIME.milliseconds);
     signal.addEventListener('abort', abort, { once: true });
+  });
+}
+
+async function startCaptureRecorder(recorder: MediaRecorder, signal: AbortSignal): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = (): void => { clearTimeout(timeout); recorder.removeEventListener('start', ready); recorder.removeEventListener('error', failed); signal.removeEventListener('abort', aborted); };
+    const ready = (): void => { cleanup(); resolve(); };
+    const failed = (): void => { cleanup(); reject(new Error('CAPTURE_ENCODER_NOT_READY')); };
+    const aborted = (): void => { cleanup(); reject(new DOMException(t.recording.cancelled, 'AbortError')); };
+    const timeout = setTimeout(failed, RECORDING.startupTimeout);
+    recorder.addEventListener('start', ready, { once: true }); recorder.addEventListener('error', failed, { once: true }); signal.addEventListener('abort', aborted, { once: true });
+    if (signal.aborted) { aborted(); return; }
+    try { recorder.start(TIME.recordingChunk); }
+    catch (error) { cleanup(); reject(error); }
   });
 }
 
@@ -162,7 +176,8 @@ export async function prepareRecording(options: CaptureOptions): Promise<Prepare
       if (!event.inside || stopping || !hasStarted || !clock || clock.paused || event.timestamp < pointerTimestampFloor) return;
       const time = clock.at(startedAt + event.timestamp - epochStart);
       if (event.kind === 'move' && samples.at(-1)?.kind === 'move' && time - (samples.at(-1)?.time ?? 0) < RECORDING.minimumSampleGap) return;
-      samples.push({ time, x: event.x, y: event.y, kind: event.kind, button: event.button });
+      const position = event.x >= 0 && event.x <= 1 && event.y >= 0 && event.y <= 1 ? event : samples.at(-1) ?? { x: 0.5, y: 0.5 };
+      samples.push({ time, x: position.x, y: position.y, kind: event.kind, button: event.button, ...(event.focus ? { focus: { ...event.focus } } : {}) });
     };
     if (window.desktop) {
       unsubscribe = window.desktop.onPointer(addSample);
@@ -194,6 +209,8 @@ export async function prepareRecording(options: CaptureOptions): Promise<Prepare
           ownsRecordingState = Boolean(window.desktop);
           await window.desktop?.recordingState(true);
           assertReady(signal, track);
+          await startCaptureRecorder(activeRecorder, signal);
+          assertReady(signal, track);
           startedAt = performance.now(); epochStart = Date.now();
           pointerTimestampFloor = epochStart;
           clock = new RecordingClock(() => performance.now(), TIME.milliseconds);
@@ -202,8 +219,7 @@ export async function prepareRecording(options: CaptureOptions): Promise<Prepare
             if (!stopping) void window.desktop?.syncRecordingProgress?.(activeClock.snapshot()).catch((error: unknown) => console.error('RECORDING_PROGRESS_FAILED', error));
           };
           hasStarted = true; phase = 'recording';
-          if (latestPointer?.inside) samples.push({ time: 0, x: latestPointer.x, y: latestPointer.y, kind: 'move' });
-          activeRecorder.start(TIME.recordingChunk);
+          if (latestPointer?.inside && latestPointer.x >= 0 && latestPointer.x <= 1 && latestPointer.y >= 0 && latestPointer.y <= 1) samples.push({ time: 0, x: latestPointer.x, y: latestPointer.y, kind: 'move' });
           publishProgress();
           progressTimer = setInterval(publishProgress, RECORDING_CONTROLS.interval);
           return {
@@ -224,10 +240,12 @@ export async function prepareRecording(options: CaptureOptions): Promise<Prepare
               const duration = Math.max(TIME.minimumDuration, activeClock.elapsed);
               try {
                 if (activeRecorder.state !== 'inactive') activeRecorder.stop();
-                const blob = await fixWebmDuration(await stopped, duration * TIME.milliseconds, { logger: false });
+                const captured = await stopped;
+                if (captured.size === 0) throw new Error('RECORDING_EMPTY');
+                const blob = await fixWebmDuration(captured, duration * TIME.milliseconds, { logger: false });
                 if (recorderError) throw recorderError;
                 return {
-                  schemaVersion: 1, name: t.editor.recordingName, duration, width: source.width, height: source.height,
+                  schemaVersion: 1, name: t.editor.recordingName, duration, width: source.width, height: source.height, frameRate: source.fps,
                   samples, clips: generateClips(samples, duration, DEFAULT_SETTINGS.mode),
                   settings: { ...DEFAULT_SETTINGS, cursor: source.cursorEmbedded ? 'none' : DEFAULT_SETTINGS.cursor }, trimStart: 0, trimEnd: duration,
                   sourceType: 'video', videoBlob: blob, videoUrl: URL.createObjectURL(blob), hasAudio: audioTracks.length > 0, cursorEmbedded: source.cursorEmbedded,

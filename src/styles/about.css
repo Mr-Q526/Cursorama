@@ -1,0 +1,29 @@
+.about-identity { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.about-app-icon { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--text-primary); color: var(--panel-background); }
+.about-identity h2 { margin: 0; color: var(--text-primary); font-size: 20px; font-weight: 600; letter-spacing: -.4px; }
+.about-identity p { margin: 7px 0 15px; color: var(--text-secondary); font-size: 11px; line-height: 1.8; }
+.about-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.about-link-card { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 68px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 9px; background: var(--shell-background); color: var(--text-secondary); text-align: left; }
+.about-link-card:hover, .about-link-card[aria-expanded='true'] { background: var(--tone-95); border-color: var(--tone-65); color: var(--text-primary); }
+.about-link-card > svg { flex-shrink: 0; }
+.about-link-card > svg:last-child:not(:first-child) { margin-left: auto; opacity: .65; }
+.about-link-card > span { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.about-link-card strong { color: var(--text-primary); font-size: 12px; font-weight: 500; }
+.about-link-card small { color: var(--text-secondary); font-size: 10px; line-height: 1.5; }
+.about-support { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); scroll-margin-top: 24px; }
+.about-support:focus { outline: none; }
+.about-support-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.about-support-heading h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 550; color: var(--text-primary); }
+.about-support > p { margin: 10px 0 20px; font-size: 12px; line-height: 1.9; color: var(--text-secondary); }
+.support-payments { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.support-payment { margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--shell-background); }
+.support-code { position: relative; width: 100%; max-width: 210px; margin: 0 auto; aspect-ratio: 1; overflow: hidden; border-radius: 7px; background: #fff; }
+.support-code img { position: absolute; display: block; height: auto; max-width: none; }
+/* 仅在界面中裁出原图的二维码区域，保留四周留白；原始收款图片不改写。 */
+.support-code-wechat img { width: calc(1242 / 600 * 100%); left: calc(-320 / 600 * 100%); top: calc(-404 / 600 * 100%); }
+.support-code-alipay img { width: calc(1080 / 724 * 100%); left: calc(-177 / 724 * 100%); top: calc(-572 / 724 * 100%); }
+.support-payment figcaption { display: flex; flex-direction: column; gap: 6px; align-items: center; margin-top: 13px; }
+.support-payment figcaption strong { color: var(--text-primary); font-size: 12px; font-weight: 500; }
+.support-payment figcaption span { color: var(--text-secondary); font-size: 10px; }
+.about-support > .support-thanks { margin-bottom: 0; font-size: 11px; }
+@media (max-width: 900px) { .about-link-card { padding: 12px; gap: 9px; } .support-payments { gap: 12px; } .support-payment { padding: 10px; } }

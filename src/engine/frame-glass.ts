@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, FRAME_LIMITS } from '../../shared';
-import type { VisualSettings } from '../../shared';
+import type { BackgroundImageAsset, VisualSettings } from '../../shared';
 import { wallpaperRevision } from './backgrounds';
 import { clamp } from './motion';
 
@@ -49,8 +49,8 @@ export class FrameGlass {
     this.backdropContext = backdrop; this.materialContext = material; this.sharpContext = sharp;
   }
 
-  prepare(background: HTMLCanvasElement, settings: VisualSettings): boolean {
-    const key = [background.width, background.height, settings.background, settings.backgroundBlur, settings.backgroundDim, wallpaperRevision(settings.background)].join(':');
+  prepare(background: HTMLCanvasElement, settings: VisualSettings, customImage?: BackgroundImageAsset): boolean {
+    const key = [background.width, background.height, settings.background, settings.background === 'custom' ? customImage?.id : '', settings.backgroundBlur, settings.backgroundDim, wallpaperRevision(settings.background, customImage)].join(':');
     if (key === this.backdropKey) return false;
     const scale = Math.min(1, GLASS.backdropWidth / background.width);
     this.backdrop.width = Math.round(background.width * scale);

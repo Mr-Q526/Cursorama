@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#263d58"/><stop offset=".6" stop-color="#738fa8"/><stop offset="1" stop-color="#c2c6ca"/></linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8197ab"/><stop offset=".4" stop-color="#476481"/><stop offset="1" stop-color="#1f3653"/></linearGradient>
+    <linearGradient id="cliff" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#68788c"/><stop offset=".45" stop-color="#314862"/><stop offset="1" stop-color="#13263e"/></linearGradient>
+    <radialGradient id="moon" cx=".8" cy=".13" r=".35"><stop stop-color="#e4e9e8" stop-opacity=".5"/><stop offset="1" stop-color="#e4e9e8" stop-opacity="0"/></radialGradient>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h3840v2160H0z"/>
+  <path fill="url(#moon)" d="M0 0h3840v2160H0z"/>
+  <circle cx="3080" cy="430" r="100" fill="#d6dfdf" opacity=".45"/>
+  <path fill="url(#water)" d="M0 1250h3840v910H0z"/>
+  <path fill="url(#cliff)" d="M-100 2460V830c610 30 610-230 1060-40s40 770 850 890-50 450-410 780Z"/>
+  <path fill="url(#cliff)" d="M3840 960c-500-100-260 600-880 670s-1100 210-850 580h1730Z"/>
+  <path fill="none" stroke="#c6d3de" stroke-opacity=".35" stroke-width="7" d="M1810 1680c810 120-50 450-410 780M2960 1630c-620 70-1100 210-850 580"/>
+  <g stroke="#b5c9d9" stroke-opacity=".2" stroke-width="3"><path d="M1690 1380h540M2150 1490h320M2360 1820h430M1920 1990h490M1150 2100h290M2980 1370h550"/></g>
+</svg>
