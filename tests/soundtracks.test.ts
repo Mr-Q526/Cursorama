@@ -4,11 +4,16 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, EDITING_LIMITS, ensureEditing, packProjectMedia, parseProject, projectBytes, readProjectBytes, unpackProjectMedia } from '../shared';
 import type { MediaAsset, Project } from '../shared';
-import { getSoundtrack, insertSoundtrack, musicClipGain, MUSIC_FADES, SOUNDTRACK_DEFAULTS, SOUNDTRACKS } from '../src/soundtracks';
-import { renderScore, SCORES, waveBytes } from '../scripts/soundtracks';
+import { getSoundtrack, insertSoundtrack, musicClipGain, MUSIC_FADES, SOUNDTRACK_DEFAULTS, SOUNDTRACK_FILTERS, SOUNDTRACKS } from '../src/soundtracks';
+import type { SoundtrackCategory } from '../src/soundtracks';
+import { soundtracksCatalog } from '../src/i18n/soundtracks';
+import { EXPANDED_SCORES, renderScore, SCORES, SYNTH_AUDIO, waveBytes } from '../scripts/soundtracks';
+import type { ExpandedSoundtrackId } from '../scripts/soundtracks';
 
 const SOURCE_DURATION = 10;
 const AUDIO_BYTES = new Uint8Array([12, 25, 37, 49, 51]);
+const REBUILD = { bars: 5, timeout: 30_000, amplitudeTolerance: 0.000001 } as const;
+const EXPANDED_CATEGORIES: Readonly<Record<ExpandedSoundtrackId, SoundtrackCategory>> = { 'paper-lantern': 'acoustic', 'velvet-cafe': 'jazz', 'silver-screen': 'cinematic', 'pixel-journey': 'retro' };
 const base: Project = { schemaVersion: 1, name: '配乐验证', duration: SOURCE_DURATION, width: 1920, height: 1080, samples: [], clips: [], settings: { ...DEFAULT_SETTINGS }, trimStart: 0, trimEnd: SOURCE_DURATION, sourceType: 'demo', hasAudio: false };
 const asset: MediaAsset = { id: 'soundtrack-fixture', name: '晨光键语.mp3', kind: 'audio', mimeType: SOUNDTRACK_DEFAULTS.mimeType, duration: 47, hasAudio: true, blob: new Blob([AUDIO_BYTES], { type: SOUNDTRACK_DEFAULTS.mimeType }), url: 'blob:soundtrack-fixture' };
 
@@ -24,9 +29,11 @@ describe('内置原创配乐', () => {
     expect(createHash('sha256').update(first).digest('hex')).toBe(createHash('sha256').update(repeated).digest('hex'));
   });
 
-  it('六首曲目具有独立资源、不同节拍与三类风格，清单与实际文件一致', () => {
-    expect(SOUNDTRACKS).toHaveLength(6);
-    expect(new Set(SOUNDTRACKS.map(({ category }) => category)).size).toBe(3);
+  it('曲目具有独立资源与不同节拍，所有风格筛选、乐谱、文案及实际文件一致', () => {
+    expect(SOUNDTRACKS).toHaveLength(SCORES.length);
+    expect(SOUNDTRACKS.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(SOUNDTRACKS.map(({ category }) => category))).toEqual(new Set(SOUNDTRACK_FILTERS.filter((filter) => filter !== 'all')));
+    expect(SOUNDTRACKS.map(({ id }) => id)).toEqual(SCORES.map(({ id }) => id));
     expect(new Set(SOUNDTRACKS.map(({ bpm }) => bpm)).size).toBe(SOUNDTRACKS.length);
     expect(new Set(SOUNDTRACKS.map(({ sha256 }) => sha256)).size).toBe(SOUNDTRACKS.length);
     for (const track of SOUNDTRACKS) {
@@ -39,8 +46,43 @@ describe('内置原创配乐', () => {
       expect(track.waveform.every((value) => value >= 0 && value <= 1)).toBe(true);
       expect(Math.max(...track.waveform)).toBe(1);
       expect(getSoundtrack(track.id)).toBe(track);
+      expect(soundtracksCatalog.tracks[track.id].title.length).toBeGreaterThan(0);
+      expect(soundtracksCatalog.categories[track.category].length).toBeGreaterThan(0);
     }
   });
+
+  it('四首扩展曲目各有独立配器、旋律、和声、节拍与分类', () => {
+    expect(EXPANDED_SCORES).toHaveLength(Object.keys(EXPANDED_CATEGORIES).length);
+    expect(new Set(EXPANDED_SCORES.map(({ instrument }) => instrument)).size).toBe(EXPANDED_SCORES.length);
+    expect(new Set(EXPANDED_SCORES.map(({ rhythm }) => rhythm)).size).toBe(EXPANDED_SCORES.length);
+    expect(new Set(EXPANDED_SCORES.map(({ melody }) => JSON.stringify(melody))).size).toBe(EXPANDED_SCORES.length);
+    expect(new Set(EXPANDED_SCORES.map(({ chords }) => JSON.stringify(chords))).size).toBe(EXPANDED_SCORES.length);
+    expect(new Set(SCORES.map(({ seed }) => seed)).size).toBe(SCORES.length);
+    for (const score of EXPANDED_SCORES) expect(getSoundtrack(score.id).category).toBe(EXPANDED_CATEGORIES[score.id]);
+  });
+
+  it.each(EXPANDED_SCORES)('$id 包含真实旋律段落，同一乐谱可重建相同的有限立体声 PCM', (score) => {
+    const excerpt = { ...score, bars: REBUILD.bars };
+    const first = renderScore(excerpt);
+    const repeated = renderScore(excerpt);
+    expect(waveBytes(first.audio).equals(waveBytes(repeated.audio))).toBe(true);
+    expect(first.waveform).toEqual(repeated.waveform);
+    expect(first.audio.left.length).toBe(first.audio.right.length);
+    let peak = 0;
+    let stereoDifference = 0;
+    for (let sample = 0; sample < first.audio.left.length; sample++) {
+      const left = first.audio.left[sample];
+      const right = first.audio.right[sample];
+      if (!Number.isFinite(left) || !Number.isFinite(right)) throw new Error(`NON_FINITE_SOUNDTRACK_SAMPLE:${score.id}`);
+      peak = Math.max(peak, Math.abs(left), Math.abs(right));
+      stereoDifference += (left - right) ** 2;
+    }
+    expect(peak).toBeGreaterThan(0);
+    expect(peak).toBeLessThanOrEqual(SYNTH_AUDIO.peak + REBUILD.amplitudeTolerance);
+    expect(stereoDifference).toBeGreaterThan(0);
+    expect(first.audio.left[0]).toBe(0);
+    expect(first.audio.right[0]).toBe(0);
+  }, REBUILD.timeout);
 
   it('从播放头添加配乐，并按工程剩余时长裁剪及默认轻声音量', () => {
     const { project, clipId } = insertSoundtrack(base, asset, 3);

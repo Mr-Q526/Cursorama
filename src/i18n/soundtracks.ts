@@ -21,7 +21,7 @@ export const soundtracksCatalog = {
   tempoUnit: 'BPM',
   selectMusic: '编辑这段音乐',
   position: '开始',
-  categories: { all: '全部', piano: '轻钢琴', ambient: '氛围', electronic: '节奏' },
+  categories: { all: '全部', piano: '轻钢琴', ambient: '氛围', electronic: '节奏', acoustic: '民谣', jazz: '爵士', cinematic: '电影', retro: '复古' },
   tracks: {
     'clear-morning': { title: '晨光键语', description: '温暖钢琴与轻刷节拍', use: '产品讲解' },
     'quiet-current': { title: '静谧流光', description: '柔和电钢琴与宽阔氛围', use: '从容演示' },
@@ -29,6 +29,10 @@ export const soundtracksCatalog = {
     'neon-focus': { title: '霓光脉冲', description: '清晰拨弦与克制电子节奏', use: '科技展示' },
     'cloud-atlas': { title: '云端漫游', description: '轻柔木琴与明亮和声', use: '创意介绍' },
     'midnight-ink': { title: '夜色墨线', description: '低速钢琴与温柔低音', use: '安静叙述' },
+    'paper-lantern': { title: '纸灯小径', description: '吉他拨弦与轻柔沙沙节拍', use: '生活分享' },
+    'velvet-cafe': { title: '丝绒咖啡', description: '暖色簧管音与爵士切分律动', use: '轻松讲解' },
+    'silver-screen': { title: '银幕微光', description: '缓缓展开的弦乐与宽阔空间', use: '故事开场' },
+    'pixel-journey': { title: '像素旅程', description: '复古合成器与跳跃琶音', use: '创意展示' },
   },
 } as const;
 

@@ -2,12 +2,13 @@ import { packProjectMedia, projectBytes, readProjectBytes, unpackProjectMedia } 
 import type { MediaAsset, Project } from '../shared';
 import { createDemoProject, loadVideo, projectMetadata, renderExport, runtimeFromStored, seekVideo } from '../src/engine';
 import { t } from '../src/i18n';
+import { soundtrackBrowserCatalog as browser } from '../src/i18n/soundtrack-browser';
 import { getSoundtrack, insertSoundtrack, loadSoundtrackAsset, SOUNDTRACK_DEFAULTS, SOUNDTRACK_FILTERS, SOUNDTRACKS } from '../src/soundtracks';
 
 export interface SoundtrackAssetReport { protocol: string; count: number; bytes: number; decoded: boolean; stereo: boolean; restoredMedia: boolean; }
 export interface SoundtrackExportReport { path: string; duration: number; volume: number; }
 export interface SoundtrackDecodedExportReport { duration: number; audioLevel: number; }
-export interface SoundtrackUIReport { cards: number; categories: boolean; auditionStarted: boolean; auditionStopped: boolean; inserted: boolean; projectId: string; restored: boolean; editOpened: boolean; removed: boolean; }
+export interface SoundtrackUIReport { cards: number; categories: boolean; compactRows: boolean; search: boolean; emptySearch: boolean; busyStopped: boolean; auditionStarted: boolean; auditionStopped: boolean; inserted: boolean; projectId: string; waveform: boolean; restoredWaveform: boolean; volumeCurve: boolean; restored: boolean; editOpened: boolean; removed: boolean; }
 const QA = { timeout: 30_000, poll: 50, duration: 4, fps: 30, durationTolerance: 0.15, audioMinimum: 0.001, stopSettle: 200, name: '原创配乐真实导出验证' } as const;
 
 async function until<T>(stage: string, read: () => T | undefined | Promise<T | undefined>): Promise<T> {
@@ -17,7 +18,7 @@ async function until<T>(stage: string, read: () => T | undefined | Promise<T | u
     if (result !== undefined) return result;
     await new Promise<void>((resolve) => setTimeout(resolve, QA.poll));
   }
-  throw new Error(`QA_SOUNDTRACK_TIMEOUT:${stage}:${JSON.stringify({ cards: document.querySelectorAll('.soundtrack-card').length, active: document.querySelector('.soundtrack-card.playing')?.getAttribute('data-soundtrack-id'), progressed: document.querySelectorAll('.soundtrack-waveform .played').length, music: document.querySelectorAll('.music-track .media-clip').length, saving: document.querySelector('.save-status')?.textContent, toast: document.querySelector('.toast')?.textContent })}`);
+  throw new Error(`QA_SOUNDTRACK_TIMEOUT:${stage}:${JSON.stringify({ cards: document.querySelectorAll('.soundtrack-card').length, active: document.querySelector('.soundtrack-card.playing')?.getAttribute('data-soundtrack-id'), progressed: document.querySelector('.soundtrack-card.playing')?.getAttribute('data-preview-progress'), music: document.querySelectorAll('.music-track .media-clip').length, saving: document.querySelector('.save-status')?.textContent, toast: document.querySelector('.toast')?.textContent })}`);
 }
 
 function fixture(): Project {
@@ -100,6 +101,14 @@ function button(label: string, root: Document | HTMLElement = document): HTMLBut
   return element;
 }
 
+function musicWaveform(id: string): { element: HTMLElement; wave: string; gain: string } | undefined {
+  const element = document.querySelector<HTMLElement>(`.music-timeline-clip[data-music-id="${id}"]`);
+  if (!element || element.dataset.waveformState !== 'ready') return undefined;
+  const wave = element.querySelector<SVGPathElement>('.music-waveform')?.getAttribute('d');
+  const gain = element.querySelector<SVGPathElement>('.music-volume-curve')?.getAttribute('d');
+  return wave && gain ? { element, wave, gain } : undefined;
+}
+
 export async function runSoundtrackUIQA(): Promise<SoundtrackUIReport> {
   const desktop = window.desktop;
   if (!desktop) throw new Error('QA_SOUNDTRACK_DESKTOP_REQUIRED');
@@ -109,26 +118,45 @@ export async function runSoundtrackUIQA(): Promise<SoundtrackUIReport> {
   await until('open-panel', () => document.querySelector('.soundtrack-panel') ? true : undefined);
   const count = document.querySelectorAll('.soundtrack-card').length;
   if (count !== SOUNDTRACKS.length) throw new Error('QA_SOUNDTRACK_CARDS');
+  if (document.querySelector('.soundtrack-waveform') || Array.from(document.querySelectorAll<HTMLElement>('.soundtrack-card')).some((item) => item.getBoundingClientRect().height > 60)) throw new Error('QA_SOUNDTRACK_ROWS_TOO_TALL');
+  const filters = document.querySelector<HTMLSelectElement>('.soundtrack-filters select');
+  if (!filters || filters.options.length !== SOUNDTRACK_FILTERS.length) throw new Error('QA_SOUNDTRACK_FILTER_MISSING');
   for (const category of SOUNDTRACK_FILTERS) {
-    button(t.soundtracks.categories[category], document.querySelector<HTMLElement>('.soundtrack-filters') ?? document).click();
+    filters.value = category; filters.dispatchEvent(new Event('change', { bubbles: true }));
     const expected = category === 'all' ? SOUNDTRACKS.length : SOUNDTRACKS.filter((item) => item.category === category).length;
     await until(`filter-${category}`, () => document.querySelectorAll('.soundtrack-card').length === expected ? true : undefined);
   }
-  button(t.soundtracks.categories.all, document.querySelector<HTMLElement>('.soundtrack-filters') ?? document).click();
+  filters.value = 'all'; filters.dispatchEvent(new Event('change', { bubbles: true }));
   const first = getSoundtrack('clear-morning');
   const title = t.soundtracks.tracks[first.id].title;
   await until('reset-filter', () => document.querySelector(`[data-soundtrack-id="${first.id}"]`) ? true : undefined);
+  const search = document.querySelector<HTMLInputElement>(`[aria-label="${browser.search}"]`);
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  if (!search || !setter) throw new Error('QA_SOUNDTRACK_SEARCH_MISSING');
+  setter.call(search, title); search.dispatchEvent(new Event('input', { bubbles: true }));
+  await until('search-title', () => document.querySelectorAll('.soundtrack-card').length === 1 && document.querySelector(`[data-soundtrack-id="${first.id}"]`) ? true : undefined);
+  setter.call(search, '不存在的曲目搜索结果'); search.dispatchEvent(new Event('input', { bubbles: true }));
+  await until('search-empty', () => document.querySelectorAll('.soundtrack-card').length === 0 && document.querySelector('.soundtrack-empty') ? true : undefined);
+  button(browser.reset).click();
+  await until('reset-search', () => document.querySelectorAll('.soundtrack-card').length === count && search.value === '' ? true : undefined);
   button(`${t.soundtracks.preview} · ${title}`).click();
   await until('audition-started', () => {
     if (document.querySelector('.soundtrack-error')) throw new Error('QA_SOUNDTRACK_AUDITION_ERROR');
-    return document.querySelector('.soundtrack-card.playing .soundtrack-waveform .played') ? true : undefined;
+    return Number(document.querySelector('.soundtrack-card.playing')?.getAttribute('data-preview-progress')) > 0 ? true : undefined;
   });
   button(`${t.soundtracks.stop} · ${title}`).click();
-  await until('audition-stopped', () => !document.querySelector('.soundtrack-card.playing') && !document.querySelector('.soundtrack-waveform .played') ? true : undefined);
+  await until('audition-stopped', () => !document.querySelector('.soundtrack-card.playing') && !document.querySelector('.soundtrack-preview-progress') ? true : undefined);
   await new Promise<void>((resolve) => setTimeout(resolve, QA.stopSettle));
   if (document.querySelector('.soundtrack-card.playing')) throw new Error('QA_SOUNDTRACK_AUDITION_RESUMED');
+  button(`${t.soundtracks.preview} · ${title}`).click();
+  await until('audition-before-busy', () => Number(document.querySelector('.soundtrack-card.playing')?.getAttribute('data-preview-progress')) > 0 ? true : undefined);
+  const settings = document.querySelector<HTMLButtonElement>('[data-action="open-settings"]');
+  if (!settings || settings.disabled) throw new Error('QA_SOUNDTRACK_SETTINGS_ENTRY'); settings.click();
+  await until('busy-stopped', () => !document.querySelector('.soundtrack-card.playing') && Boolean(document.querySelector('.settings-dialog')) ? true : undefined);
+  if (Array.from(document.querySelectorAll<HTMLButtonElement>('.soundtrack-preview, .soundtrack-add')).some((item) => !item.disabled)) throw new Error('QA_SOUNDTRACK_BUSY_CONTROLS_ENABLED');
+  button(t.editor.close, document.querySelector<HTMLElement>('.settings-dialog') ?? document).click();
+  await until('busy-cleared', () => !document.querySelector('.settings-dialog') && Array.from(document.querySelectorAll<HTMLButtonElement>('.soundtrack-preview')).every((item) => !item.disabled) ? true : undefined);
   const progress = document.querySelector<HTMLInputElement>('.playback-progress');
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
   if (!progress || !setter) throw new Error('QA_SOUNDTRACK_PLAYHEAD');
   setter.call(progress, '0'); progress.dispatchEvent(new Event('input', { bubbles: true }));
   await new Promise<void>((resolve) => setTimeout(resolve, QA.poll));
@@ -144,21 +172,39 @@ export async function runSoundtrackUIQA(): Promise<SoundtrackUIReport> {
     return media && music ? { id, stored, media, music } : undefined;
   });
   if (saved.music.volume !== SOUNDTRACK_DEFAULTS.volume || saved.music.sourceIn !== 0 || saved.music.start !== 0) throw new Error('QA_SOUNDTRACK_INSERT_SETTINGS');
+  const waveform = await until('inserted-waveform', () => musicWaveform(saved.music.id));
   const payload = unpackProjectMedia(saved.stored.data, saved.stored.bytes).assets.get(saved.media.id);
   if (!payload || payload.byteLength !== first.bytes) throw new Error('QA_SOUNDTRACK_PERSIST_BYTES');
   button(t.navigation.library).click();
   const projectButton = await until('library-project', () => document.querySelector<HTMLButtonElement>(`.library-page [data-project-id="${saved.id}"]`) ?? undefined);
   projectButton.click();
   await until('restored-project', () => document.querySelector<HTMLElement>('.project-bar')?.dataset.projectId === saved.id && !document.querySelector('.processing-overlay') && document.querySelectorAll('.music-track .media-clip').length === musicBefore + 1 ? true : undefined);
+  await until('restored-waveform', () => {
+    const restoredWaveform = musicWaveform(saved.music.id);
+    return restoredWaveform?.wave === waveform.wave && restoredWaveform.gain === waveform.gain ? true : undefined;
+  });
   const reopen = document.querySelector<HTMLButtonElement>('[data-action="open-audio"]');
   if (!reopen || reopen.disabled) throw new Error('QA_SOUNDTRACK_REOPEN_ENTRY');
   reopen.click();
   await until('reopened-panel', () => document.querySelector('.soundtrack-panel') ? true : undefined);
+  const current = document.querySelector<HTMLDetailsElement>('.soundtrack-current'); if (!current) throw new Error('QA_SOUNDTRACK_CURRENT_MISSING'); current.open = true;
   button(`${t.soundtracks.selectMusic} · ${title}.mp3`).click();
   await until('music-editor', () => document.querySelector('.editing-asset-name')?.textContent === `${title}.mp3` ? true : undefined);
+  const volume = document.querySelector<HTMLInputElement>(`.editing-panel input[type="range"][aria-label="${t.editing.volume}"]`);
+  if (!volume) throw new Error('QA_SOUNDTRACK_VOLUME_MISSING');
+  setter.call(volume, '65'); volume.dispatchEvent(new Event('input', { bubbles: true }));
+  await until('volume-curve', () => {
+    const currentWaveform = musicWaveform(saved.music.id);
+    return currentWaveform?.element.dataset.volume === '0.65' && currentWaveform.gain !== waveform.gain ? true : undefined;
+  });
+  setter.call(volume, String(SOUNDTRACK_DEFAULTS.volume * 100)); volume.dispatchEvent(new Event('input', { bubbles: true }));
+  await until('restored-volume-curve', () => {
+    const currentWaveform = musicWaveform(saved.music.id);
+    return currentWaveform?.element.dataset.volume === String(SOUNDTRACK_DEFAULTS.volume) && currentWaveform.gain === waveform.gain ? true : undefined;
+  });
   button(t.editing.delete).click();
   await until('removed-track', () => document.querySelectorAll('.music-track .media-clip').length === musicBefore ? true : undefined);
   button(t.editor.background).click();
   await until('back-to-background', () => document.querySelector('[data-action="more-backgrounds"]') ? true : undefined);
-  return { cards: count, categories: true, auditionStarted: true, auditionStopped: true, inserted: true, projectId: saved.id, restored: true, editOpened: true, removed: true };
+  return { cards: count, categories: true, compactRows: true, search: true, emptySearch: true, busyStopped: true, auditionStarted: true, auditionStopped: true, inserted: true, projectId: saved.id, waveform: true, restoredWaveform: true, volumeCurve: true, restored: true, editOpened: true, removed: true };
 }

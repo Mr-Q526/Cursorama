@@ -50,7 +50,8 @@
 .editing-workspace .background-selected { margin-top: 12px; }
 .editing-workspace .neutral-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
 .editing-workspace .background-swatch { height: 54px; }
-.editing-workspace .timeline-panel.editing-timeline { grid-column: 1 / -1; grid-row: 2; height: calc(80px + var(--track-count, 2) * 36px); min-height: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.editing-workspace .timeline-panel.editing-timeline { grid-column: 1 / -1; grid-row: 2; height: calc(80px + var(--track-count, 2) * 36px + var(--music-track-extra, 0px)); min-height: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.editing-workspace .timeline-panel.editing-timeline:has(.music-track) { --music-track-extra: 24px; }
 .editing-workspace .timeline-heading { height: 38px; border: 0; padding: 0; }
 .editing-workspace .timeline-body { padding: 0 5px 10px 0; overflow: hidden; }
 .editing-workspace .timeline-title h2 { font-size: 11px; }

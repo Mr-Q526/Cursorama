@@ -1,35 +1,55 @@
 .soundtrack-panel { min-width: 0; }
-.soundtrack-intro { margin: 0 0 16px; font-size: 11px; line-height: 1.7; color: var(--text-tertiary); }
-.soundtrack-import { width: 100%; min-height: 36px; justify-content: center; font-size: 11px; margin-bottom: 23px; }
-.soundtrack-library-header { display: flex; align-items: center; justify-content: space-between; color: var(--text-primary); font-size: 11px; font-weight: 550; margin-bottom: 12px; }
-.soundtrack-library-header small { color: var(--text-tertiary); font-size: 10px; font-weight: 400; font-variant-numeric: tabular-nums; }
-.soundtrack-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 7px; margin-bottom: 14px; background: var(--tone-95); }
-.soundtrack-filters button { min-height: 25px; padding: 0 2px; border-radius: 4px; font-size: 10px; background: transparent; color: var(--text-tertiary); white-space: nowrap; }
-.soundtrack-filters button.selected { background: var(--tone-100); color: var(--text-primary); box-shadow: 0 1px 3px color-mix(in srgb, var(--tone-20) 7%, transparent); }
-.soundtrack-filters button:hover { color: var(--text-primary); }
-.soundtrack-list { display: flex; flex-direction: column; gap: 9px; }
-.soundtrack-card { border: 1px solid var(--line); border-radius: 9px; padding: 11px 10px 9px; background: var(--tone-100); }
-.soundtrack-card.playing { border-color: var(--tone-55); background: var(--tone-95); }
-.soundtrack-card-header { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.soundtrack-preview { display: inline-flex; align-items: center; justify-content: center; width: 31px; height: 31px; flex-shrink: 0; border-radius: 50%; color: var(--text-secondary); background: var(--tone-95); }
-.soundtrack-preview:hover:not(:disabled) { background: var(--tone-90); color: var(--text-primary); }
-.soundtrack-card.playing .soundtrack-preview { background: var(--tone-25); color: var(--tone-100); }
+.soundtrack-library-header { display: flex; align-items: center; justify-content: space-between; min-height: 26px; margin-bottom: 9px; color: var(--text-primary); font-size: 11px; font-weight: 550; }
+.soundtrack-import { display: inline-flex; align-items: center; gap: 5px; min-height: 27px; padding: 4px 7px; background: var(--tone-95); color: var(--text-secondary); border: 1px solid var(--line); border-radius: 6px; font-size: 10px; font-weight: 400; }
+.soundtrack-import:hover:not(:disabled) { background: var(--tone-90); color: var(--text-primary); }
+.soundtrack-search { display: flex; align-items: center; gap: 7px; height: 32px; border: 1px solid var(--line); border-radius: 7px; padding: 0 8px; background: var(--tone-95); color: var(--text-tertiary); }
+.soundtrack-search:focus-within { border-color: var(--tone-55); }
+.soundtrack-search input { flex: 1; min-width: 0; width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--text-primary); font-size: 11px; outline: none; }
+.soundtrack-search input:focus-visible { outline: none; }
+.soundtrack-search input::-webkit-search-cancel-button { display: none; }
+.soundtrack-search input::placeholder { color: var(--text-tertiary); }
+.soundtrack-search button { display: grid; place-items: center; width: 21px; height: 21px; padding: 0; border-radius: 4px; background: transparent; color: var(--text-secondary); }
+.soundtrack-search button:hover { background: var(--tone-85); }
+.soundtrack-filters { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 7px 0 5px; }
+.soundtrack-filters select { max-width: 65%; min-height: 28px; font-size: 10px; padding: 3px 22px 3px 5px; background-color: var(--tone-100); border: 1px solid transparent; border-radius: 5px; color: var(--text-secondary); }
+.soundtrack-filters select:hover { background-color: var(--tone-95); border-color: var(--line); }
+.soundtrack-result-count { color: var(--text-secondary); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.soundtrack-result-count span { color: var(--text-tertiary); }
+.soundtrack-list { display: flex; flex-direction: column; }
+.soundtrack-card { position: relative; min-width: 0; min-height: 53px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 7px 4px; background: transparent; }
+.soundtrack-card:hover { background: var(--tone-95); }
+.soundtrack-card.playing { background: var(--tone-95); }
+.soundtrack-card-header { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.soundtrack-preview { display: inline-flex; align-items: center; justify-content: center; width: 27px; height: 29px; flex-shrink: 0; padding: 0; border-radius: 6px; color: var(--text-secondary); background: transparent; }
+.soundtrack-preview:hover:not(:disabled) { background: var(--tone-85); color: var(--text-primary); }
+.soundtrack-card.playing .soundtrack-preview { background: var(--primary-button); color: var(--primary-button-text); }
 .soundtrack-card-title { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 4px; }
-.soundtrack-card-title strong { font-size: 11px; font-weight: 550; color: var(--text-primary); }
-.soundtrack-card-title span { font-size: 9px; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.soundtrack-add { width: 25px; height: 25px; border: 1px solid var(--line); flex-shrink: 0; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); background: var(--tone-100); }
-.soundtrack-add:hover:not(:disabled) { border-color: var(--tone-65); color: var(--text-primary); }
-.soundtrack-waveform { display: flex; align-items: center; justify-content: center; gap: 2px; margin: 12px 0 9px; height: 23px; overflow: hidden; }
-.soundtrack-waveform span { display: block; flex: 1; border-radius: 1px; background: var(--tone-85); min-width: 1px; }
-.soundtrack-waveform span.played { background: var(--tone-35); }
-.soundtrack-card-details { display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
-.soundtrack-card-details i { font-style: normal; padding: 0 5px; }
-.soundtrack-license { margin: 13px 0 22px; color: var(--text-tertiary); font-size: 9px; line-height: 1.8; }
-.soundtrack-error { color: var(--text-primary); margin: 8px 0; font-size: 10px; line-height: 1.7; }
-.soundtrack-current { border-top: 1px solid var(--line); padding-top: 18px; }
-.soundtrack-current .section-caption { margin-top: 0; }
-.soundtrack-used-list { display: flex; flex-direction: column; gap: 6px; }
-.soundtrack-used-list button { display: flex; align-items: center; min-height: 33px; gap: 7px; border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; text-align: left; background: var(--tone-100); color: var(--text-secondary); font-size: 10px; }
+.soundtrack-card-title strong { font-size: 11px; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soundtrack-card-title > span { font-size: 9px; line-height: 1.4; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.soundtrack-card-title i { font-style: normal; padding: 0 5px; }
+.soundtrack-add { width: 27px; height: 28px; flex-shrink: 0; border: 1px solid transparent; padding: 0; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); background: transparent; }
+.soundtrack-add:hover:not(:disabled) { background: var(--tone-85); border-color: var(--tone-75); color: var(--text-primary); }
+.soundtrack-preview-progress { position: absolute; bottom: 0; left: 4px; right: 4px; height: 2px; background: var(--tone-85); overflow: hidden; }
+.soundtrack-preview-progress span { display: block; height: 100%; background: var(--text-primary); transition: width .18s linear; }
+.soundtrack-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 8px; color: var(--text-tertiary); }
+.soundtrack-empty strong { font-size: 11px; font-weight: 500; color: var(--text-secondary); }
+.soundtrack-empty p { font-size: 10px; margin: 0; }
+.soundtrack-empty button { font-size: 10px; }
+.soundtrack-error { color: var(--danger); margin: 7px 0; font-size: 10px; line-height: 1.7; }
+.soundtrack-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 10px 0 13px; font-size: 9px; line-height: 1.5; color: var(--text-tertiary); }
+.soundtrack-footer > span:first-child { min-width: 0; }
+.soundtrack-footer > span:last-child { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.soundtrack-current { border-top: 1px solid var(--line); padding-top: 11px; }
+.soundtrack-current summary { display: flex; align-items: center; gap: 7px; color: var(--text-secondary); font-size: 10px; list-style: none; cursor: pointer; }
+.soundtrack-current summary::-webkit-details-marker { display: none; }
+.soundtrack-current summary small { margin-left: auto; color: var(--text-tertiary); font-size: 10px; font-variant-numeric: tabular-nums; }
+.soundtrack-current summary svg { color: var(--text-tertiary); transition: transform .15s; }
+.soundtrack-current[open] summary svg { transform: rotate(180deg); }
+.soundtrack-used-list { display: flex; flex-direction: column; gap: 3px; padding-top: 8px; }
+.soundtrack-used-list button { display: flex; align-items: center; min-height: 30px; gap: 7px; border: 0; border-radius: 5px; padding: 6px 4px; text-align: left; background: transparent; color: var(--text-secondary); font-size: 10px; }
+.soundtrack-used-list button:hover { background: var(--tone-95); }
 .soundtrack-used-list button span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .soundtrack-used-list button small { font-size: 9px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
-.soundtrack-position { display: flex; align-items: center; justify-content: space-between; margin: 15px 0 5px; font-size: 10px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.soundtrack-loading { animation: soundtrack-loading 1s linear infinite; }
+@keyframes soundtrack-loading { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .soundtrack-preview-progress span { transition: none; } }

@@ -43,6 +43,10 @@ export * from './studio';
 export * from './motion';
 export * from './soundtracks';
 export * from './focus-sounds';
+export * from './timeline-audio';
+export * from './promo';
+export * from './promo-v2';
+export * from './soundtrack-browser';
 export const t = { editor: editorCatalog, demo: demoCatalog, export: exportCatalog, recording: recordingCatalog, appearance: appearanceCatalog, library: libraryCatalog, background: backgroundCatalog, customBackground: customBackgroundCatalog, navigation: navigationCatalog, settings: settingsCatalog, updates: updatesCatalog, window: windowCatalog, playback: playbackCatalog, recorderControls: recorderControlsCatalog, teleprompter: teleprompterCatalog, frame: frameCatalog, covers: coverCatalog, editing: editingCatalog, about: aboutCatalog, studio: studioCatalog, motion: motionCatalog, soundtracks: soundtracksCatalog, focusSounds: focusSoundsCatalog };
 export const formatTime = (seconds: number): string => {
   const safeSeconds = Math.max(0, seconds);

@@ -1,0 +1,31 @@
+/** Cursorama 宣传片的固定文案，与编辑器界面文案独立维护。 */
+export const promoCatalog = {
+  brand: 'Cursorama',
+  director: '光标即导演。',
+  hookFirst: '你动光标。',
+  hookSecond: '镜头跟上。',
+  intro: '录下操作，自成演示。',
+  focusTitle: '重点，自动入镜。',
+  focusBody: '点击 · 输入 · 滚动',
+  focusNote: '真实界面操作演示',
+  motionTitle: '让演示，有镜头感。',
+  motionBody: '平滑缩放，三维透视。',
+  motionModes: ['清晰聚焦', '电影运镜', '空间漫游'],
+  backgroundTitle: '给画面一点个性。',
+  backgroundBody: '原创壁纸 · 圆角 · 光影',
+  editTitle: '把节奏，剪出来。',
+  editBody: '剪辑 · 配乐 · 字幕',
+  exportTitle: '准备好。被看见。',
+  exportSpecs: 'MP4 / WebM · 最高 4K · 30 / 60 fps',
+  closingFirst: '把每一次演示，',
+  closingSecond: '变成作品。',
+  availability: 'Windows 桌面版 · 开源免费',
+  destination: 'github.com/Mr-Q526/Cursorama',
+  play: '播放宣传片',
+  download: '下载视频',
+  music: '原创配乐',
+  duration: '48 秒 · 1920 × 1080 · 30 fps',
+  playerTitle: 'Cursorama · 光标即导演',
+} as const;
+
+export type PromoCatalog = typeof promoCatalog;

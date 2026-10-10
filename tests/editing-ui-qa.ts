@@ -6,6 +6,7 @@ import { t } from '../src/i18n';
 export interface EditingUIReport {
   projectId: string; split: boolean; deletion: boolean; speed: boolean; localVideo: boolean; music: boolean; subtitles: boolean;
   restoredMedia: boolean; exportPath: string; duration: number; decodedDuration: number; subtitlePixels: number; audioLevel: number; finalSegment: boolean;
+  importedAudioWaveform: boolean;
 }
 const QA = { poll: 40, timeout: 30_000, paint: 180, width: 640, height: 360, videoDuration: 1, fps: 30, sourceDuration: 2, subtitle: '字幕烧录验证', projectName: '基础剪辑与素材恢复验证', sampleRate: 24_000, tone: 440, audioVolume: 0.15, pixelTolerance: 28, audioMinimum: 0.005 } as const;
 const BLUE = { red: 35, green: 80, blue: 195 } as const;
@@ -149,6 +150,9 @@ export async function runEditingUIQA(): Promise<EditingUIReport> {
   await insertFile('video', new File([await solidVideo(RED)], '红色片段.webm', { type: 'video/webm' }));
   seek(0); await new Promise<void>((resolve) => setTimeout(resolve, QA.poll));
   await insertFile('audio', new File([toneWav(3)], '音轨验证.wav', { type: 'audio/wav' }));
+  await until(() => document.querySelector('.music-timeline-clip[data-waveform-state="ready"] .music-waveform')?.getAttribute('d') ? true : undefined, 'imported-audio-waveform');
+  const curve = document.querySelector('.music-volume-curve');
+  if (!curve?.getAttribute('d') || document.querySelector('.music-timeline-clip')?.getAttribute('data-volume') !== '0.65') throw new Error('QA_EDIT_MUSIC_ENVELOPE_MISSING');
   seek(0.5); await new Promise<void>((resolve) => setTimeout(resolve, QA.poll)); button(t.editing.addSubtitle).click();
   await until(() => document.querySelector<HTMLTextAreaElement>('.subtitle-editor') ?? undefined);
   const subtitle = document.querySelector<HTMLTextAreaElement>('.subtitle-editor'); if (!subtitle) throw new Error('QA_EDIT_SUBTITLE_INPUT_MISSING'); value(subtitle, QA.subtitle); value(labelInput(t.editing.end), '1.5');
@@ -173,7 +177,7 @@ export async function runEditingUIQA(): Promise<EditingUIReport> {
   await new Promise<void>((resolve) => setTimeout(resolve, QA.paint));
   for (const asset of Object.values(restored.media ?? {})) URL.revokeObjectURL(asset.url);
   if (restored.videoUrl) URL.revokeObjectURL(restored.videoUrl);
-  return { projectId: saved.id, split: true, deletion: true, speed: true, localVideo: true, music: true, subtitles: true, restoredMedia: true, exportPath: output.path, duration: timelineDuration(restored), ...verified };
+  return { projectId: saved.id, split: true, deletion: true, speed: true, localVideo: true, music: true, subtitles: true, restoredMedia: true, importedAudioWaveform: true, exportPath: output.path, duration: timelineDuration(restored), ...verified };
 }
 
 export async function restoreEditingUIQA(id: string): Promise<boolean> {
@@ -183,6 +187,7 @@ export async function restoreEditingUIQA(id: string): Promise<boolean> {
   await until(() => document.querySelectorAll('.timeline-segment').length === 3 && !document.querySelector('.processing-overlay') ? true : undefined, 'restore-workspace');
   const stored = await desktop.openLibraryProject(id);
   if (stored.data.mediaAssets?.length !== 3 || stored.data.editing?.music.length !== 1 || stored.data.editing.subtitles[0]?.text !== QA.subtitle) throw new Error('QA_EDIT_RELOAD_LOST_MEDIA');
+  await until(() => document.querySelector('.music-timeline-clip[data-waveform-state="ready"] .music-waveform')?.getAttribute('d') ? true : undefined, 'restored-audio-waveform');
   const frameStarted = performance.now();
   seek(1);
   const preview = document.querySelector<HTMLCanvasElement>('.preview-stage canvas'); if (!preview) throw new Error('QA_EDIT_RELOAD_PREVIEW_MISSING');

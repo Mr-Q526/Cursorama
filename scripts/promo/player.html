@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{playerTitle}}</title>
+<style>
+:root{color-scheme:dark;--bg:#111310;--fg:#f4f5ee;--muted:#a4a69d;--accent:#c5fa58}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:'Microsoft YaHei',sans-serif}main{max-width:1480px;margin:auto;padding:44px 5vw 64px}header{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px}h1{font:600 clamp(26px,3vw,44px) Bahnschrift,'Segoe UI',sans-serif;margin:0}header p{font-size:14px;color:var(--muted)}video{width:100%;display:block;aspect-ratio:16/9;border:1px solid #373b30;border-radius:12px;background:#000}footer{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:28px}h2{font-size:24px;margin:0 0 12px}footer p{color:var(--muted);font-size:14px;margin:0}nav{display:flex;gap:12px}a{display:block;text-decoration:none;padding:14px 24px;border:1px solid #373b30;border-radius:6px;color:var(--fg);font-size:14px}a:first-child{background:var(--accent);border-color:var(--accent);color:var(--bg)}@media(max-width:700px){header,footer{align-items:flex-start;flex-direction:column}nav{flex-wrap:wrap}main{padding-top:24px}}
+</style></head>
+<body><main><header><h1>{{brand}}</h1><p>{{duration}}</p></header><video controls playsinline preload="metadata" poster="Cursorama-宣传片封面.png" aria-label="{{play}}"><source src="{{outputName}}" type="video/mp4"></video><footer><div><h2>{{director}}</h2><p>{{intro}}</p></div><nav><a href="{{outputName}}" download>{{download}}</a><a href="Cursorama-原创配乐.wav" download>{{music}}</a></nav></footer></main></body>
+</html>

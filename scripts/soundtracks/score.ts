@@ -1,6 +1,8 @@
 /** Cursorama 原创配乐乐谱：和声、旋律、配器及段落均由本项目定义。 */
-export type Instrument = 'piano' | 'electric' | 'pad' | 'pluck' | 'mallet' | 'bass';
-export type RhythmStyle = 'none' | 'brush' | 'soft' | 'pulse';
+import { EXPANDED_SCORES } from './expanded-scores';
+
+export type Instrument = 'piano' | 'electric' | 'pad' | 'pluck' | 'mallet' | 'bass' | 'guitar' | 'reed' | 'strings' | 'retro';
+export type RhythmStyle = 'none' | 'brush' | 'soft' | 'pulse' | 'folk' | 'bossa' | 'retro';
 
 export interface Score {
   id: string;
@@ -17,6 +19,13 @@ export interface Score {
   arpeggio: boolean;
   swing: number;
   space: number;
+  accompaniment?: Instrument;
+  accompanimentOctave?: number;
+  accompanimentSteps?: readonly number[];
+  accompanimentLength?: number;
+  melodySteps?: readonly number[];
+  melodyLength?: number;
+  swell?: boolean;
 }
 
 export const SCORE_TIMING = { beatsPerBar: 4, secondsPerMinute: 60, tailSeconds: 3.5 } as const;
@@ -64,4 +73,5 @@ export const SCORES: readonly Score[] = [
     instrument: 'piano', rhythm: 'soft', pad: 0.055, melodyGain: 0.16, bass: 0.115,
     arpeggio: false, swing: 0.09, space: 0.34,
   },
+  ...EXPANDED_SCORES,
 ] as const;

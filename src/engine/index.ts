@@ -13,3 +13,4 @@ export * from './timeline-media';
 export * from './subtitles';
 export * from './project-media';
 export * from './focus-audio';
+export * from './audio-waveform';

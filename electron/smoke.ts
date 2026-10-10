@@ -53,6 +53,39 @@ async function reloadQA(window: BrowserWindow, output: string): Promise<void> {
   await window.webContents.executeJavaScript(await readFile(path.join(output, 'renderer-test.js'), 'utf8'));
 }
 
+async function captureAudioLayouts(window: BrowserWindow, output: string): Promise<Record<string, unknown>[]> {
+  const originalSize = window.getSize();
+  const originalMinimum = window.getMinimumSize();
+  const reports: Record<string, unknown>[] = [];
+  try {
+    window.setMinimumSize(1000, 720);
+    for (const [theme, width, height, name] of [['dark', 1480, 960, 'soundtrack-panel'], ['light', 1480, 960, 'soundtrack-panel-light'], ['dark', 1080, 760, 'soundtrack-panel-compact']] as const) {
+      window.setSize(width, height);
+      await window.webContents.executeJavaScript(`cursoramaQA.setThemeUI(${JSON.stringify(theme)})`, true);
+      await window.webContents.executeJavaScript(`document.querySelector('[data-action="open-audio"]').click()`);
+      await window.webContents.executeJavaScript(`new Promise(resolve => setTimeout(resolve, 180))`);
+      const report = await window.webContents.executeJavaScript(`(() => {
+        const panel = document.querySelector('.soundtrack-panel');
+        const scroll = document.querySelector('.inspector-scroll'); scroll.scrollTop = 0;
+        const rows = [...panel.querySelectorAll('.soundtrack-card')];
+        const bounds = scroll.getBoundingClientRect();
+        const visible = rows.filter(row => row.getBoundingClientRect().top >= bounds.top && row.getBoundingClientRect().bottom <= bounds.bottom).length;
+        const graph = document.querySelector('.music-clip-graph').getBoundingClientRect();
+        const timeline = document.querySelector('.timeline-panel').getBoundingClientRect();
+        const result = { theme: document.documentElement.dataset.theme, width: innerWidth, height: innerHeight, count: rows.length, visible, compact: rows.every(row => row.getBoundingClientRect().height <= 60), noOverflow: panel.scrollWidth <= panel.clientWidth + 1, graphVisible: graph.bottom <= timeline.bottom && graph.top >= timeline.top };
+        if (!result.compact || !result.noOverflow || !result.graphVisible || result.visible < 1) throw new Error('QA_AUDIO_LAYOUT_INVALID:' + JSON.stringify(result));
+        return result;
+      })()`) as Record<string, unknown>;
+      reports.push(report);
+      await writeFile(path.join(output, `${name}.png`), await captureRestoredPage(window));
+    }
+  } finally {
+    window.setSize(originalSize[0], originalSize[1]); window.setMinimumSize(originalMinimum[0], originalMinimum[1]);
+    await window.webContents.executeJavaScript(`cursoramaQA.setThemeUI('dark')`, true);
+  }
+  return reports;
+}
+
 async function verifyFourK(root: string): Promise<typeof DECODE> {
   const { stderr } = await decodeFile(path.join(root, 'node_modules/ffmpeg-static/ffmpeg.exe'), ['-hide_banner', '-i', path.join(root, '.qa/4K清晰度验证.mp4'), '-f', 'null', 'NUL'], { windowsHide: true });
   const frames = Array.from(stderr.matchAll(/frame=\s*(\d+)/g)).at(-1)?.[1];
@@ -211,6 +244,7 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     await writeFile(path.join(output, 'desktop.png'), (await window.webContents.capturePage()).toPNG());
     const editing = await window.webContents.executeJavaScript(`cursoramaQA.runEditingUIQA()`, true) as EditingUIReport;
     await writeFile(path.join(output, 'editing-timeline.png'), await captureRestoredPage(window));
+    const audioLayouts = await captureAudioLayouts(window, output);
     await reloadQA(window, output);
     await window.webContents.executeJavaScript(`cursoramaQA.restoreEditingUIQA(${JSON.stringify(editing.projectId)})`, true);
     await writeFile(path.join(output, 'editing-restored.png'), await captureRestoredPage(window));
@@ -218,7 +252,7 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     await window.webContents.executeJavaScript(`cursoramaQA.restoreLibraryUIQA(${JSON.stringify(libraryReport.projectId)})`, true);
     await writeFile(path.join(output, 'library-restored.png'), await captureRestoredPage(window));
     const { bytes: _bytes, ...report } = result;
-    await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: true, ...report, bytes: raw.length, emptyWorkspace, navigation: { ...navigation, lightTheme: true, darkTheme: true }, frameStepping, customBackground: { ...customBackground, moved: movedBackgroundReport, ui: customBackgroundUI }, soundtracks: { assets: soundtrackAssets, ui: soundtrackUI, export: { ...soundtrackExport, ...decodedSoundtrack } }, focusSounds, library: { ...libraryReport, restoredAfterReload: true }, editing: { ...editing, restoredAfterReload: true }, wallpapers: { count: wallpaperReport.count, coverAndFilters: wallpaperReport.coverAndFilters }, nativeFocus, fullscreen, fullscreenControls, roundedFrame, glassFrame, recordingFlow: { ...ready, ...cancelledCountdown, ...startedCountdown }, renderer: rendererDetails, decodedFourK, decodedPausedRecording, errors }, null, 2));
+    await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: true, ...report, bytes: raw.length, emptyWorkspace, navigation: { ...navigation, lightTheme: true, darkTheme: true }, frameStepping, customBackground: { ...customBackground, moved: movedBackgroundReport, ui: customBackgroundUI }, soundtracks: { assets: soundtrackAssets, ui: soundtrackUI, layouts: audioLayouts, export: { ...soundtrackExport, ...decodedSoundtrack } }, focusSounds, library: { ...libraryReport, restoredAfterReload: true }, editing: { ...editing, restoredAfterReload: true }, wallpapers: { count: wallpaperReport.count, coverAndFilters: wallpaperReport.coverAndFilters }, nativeFocus, fullscreen, fullscreenControls, roundedFrame, glassFrame, recordingFlow: { ...ready, ...cancelledCountdown, ...startedCountdown }, renderer: rendererDetails, decodedFourK, decodedPausedRecording, errors }, null, 2));
     if (errors.length) throw new Error(errors.join('\n'));
     console.info('桌面端验证通过：界面、原生鼠标追踪、应用窗口录制、3D 自动运镜、带效果 MP4 导出、项目恢复。');
     app.exit(0);

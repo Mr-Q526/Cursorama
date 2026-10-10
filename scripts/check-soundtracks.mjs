@@ -1,5 +1,6 @@
 /** 检查打包 MP3 的真实解码与响度，不播放或改写用户音频设备。 */
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, realpath, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -7,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import ffmpeg from 'ffmpeg-static';
 
-const CHECK = { maxBytes: 64 * 1024 * 1024, sampleRate: 44100, peakLimit: -0.5, minRms: -32, maxRms: -14, edgeDropDb: 9, silenceRatio: 0.1 };
+const CHECK = { maxBytes: 64 * 1024 * 1024, sampleRate: 44100, peakLimit: -0.5, minRms: -32, maxRms: -14, edgeDropDb: 9, silenceRatio: 0.1, durationTolerance: 0.15, minLufs: -19, maxLufs: -17, stereoMinimumDb: -55 };
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const temporary = await mkdtemp(path.join(tmpdir(), 'cursorama-audio-check-'));
 try {
@@ -18,6 +19,8 @@ try {
   const report = {};
   for (const [id, track] of Object.entries(manifest.tracks)) {
     const source = path.join(root, 'public/music', `${id}.mp3`);
+    const content = await readFile(source);
+    if (content.length !== track.bytes || createHash('sha256').update(content).digest('hex') !== track.sha256) throw new Error(`AUDIO_ASSET_INTEGRITY_FAILED:${id}`);
     const decoded = spawnSync(ffmpeg, ['-v', 'error', '-nostdin', '-i', source, '-f', 'f32le', '-ar', String(CHECK.sampleRate), '-ac', '2', '-'], { windowsHide: true, maxBuffer: CHECK.maxBytes });
     if (decoded.status !== 0 || decoded.error) throw new Error(`AUDIO_DECODE_FAILED: ${id}`, { cause: decoded.error ?? decoded.stderr.toString() });
     const stats = analyzePcm(decoded.stdout, CHECK.sampleRate);
@@ -25,8 +28,10 @@ try {
     if (loudness.status !== 0 || loudness.error) throw new Error(`AUDIO_LOUDNESS_FAILED: ${id}`, { cause: loudness.error ?? loudness.stderr });
     const loudnessMatch = loudness.stderr.match(/\{\s*"input_i"[\s\S]*?\}/);
     const measured = loudnessMatch ? JSON.parse(loudnessMatch[0]) : {};
+    const integratedLufs = Number(measured.input_i);
+    if (!Number.isFinite(integratedLufs) || integratedLufs < CHECK.minLufs || integratedLufs > CHECK.maxLufs || Math.abs(stats.duration - track.duration) > CHECK.durationTolerance) throw new Error(`AUDIO_MASTERING_CHECK_FAILED:${id}`);
     report[id] = { ...stats, integratedLufs: Number(measured.input_i), truePeakDb: Number(measured.input_tp), bytes: track.bytes };
-    if (stats.clippedSamples || stats.peakDb >= CHECK.peakLimit || stats.rmsDb < CHECK.minRms || stats.rmsDb > CHECK.maxRms || stats.introDb > stats.bodyDb - CHECK.edgeDropDb || stats.outroDb > stats.bodyDb - CHECK.edgeDropDb || stats.silentWindowRatio > CHECK.silenceRatio) throw new Error(`AUDIO_QUALITY_CHECK_FAILED: ${id}: ${JSON.stringify(stats)}`);
+    if (stats.clippedSamples || stats.peakDb >= CHECK.peakLimit || stats.rmsDb < CHECK.minRms || stats.rmsDb > CHECK.maxRms || stats.introDb > stats.bodyDb - CHECK.edgeDropDb || stats.outroDb > stats.bodyDb - CHECK.edgeDropDb || stats.silentWindowRatio > CHECK.silenceRatio || stats.stereoDifferenceDb < CHECK.stereoMinimumDb) throw new Error(`AUDIO_QUALITY_CHECK_FAILED: ${id}: ${JSON.stringify(stats)}`);
     console.info(`${id}: ${stats.duration}s，RMS ${stats.rmsDb} dBFS，峰值 ${stats.peakDb} dBFS，响度 ${measured.input_i} LUFS，淡入 ${stats.introDb} / 淡出 ${stats.outroDb} dBFS。`);
   }
   await mkdir(path.join(root, '.qa'), { recursive: true });

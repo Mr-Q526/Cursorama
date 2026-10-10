@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0b0b">
+  <title>{{playerTitle}}</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #0b0b0b;
+      --foreground: #f4f4f2;
+      --muted: #a7a7a5;
+      --line: #343434;
+      --accent: #ff5c35;
+      --gutter: clamp(20px, 3.2vw, 64px);
+      --display: "Bahnschrift", "Segoe UI", "Microsoft YaHei", sans-serif;
+      --body: "Segoe UI", "Microsoft YaHei", sans-serif;
+      --motion-time: 240ms;
+      --motion-curve: cubic-bezier(.2, .7, .2, 1);
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--background); }
+    body { margin: 0; color: var(--foreground); font-family: var(--body); }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button { font: inherit; }
+    a { color: inherit; text-decoration: none; }
+    button, a { touch-action: manipulation; }
+    button:focus-visible, a:focus-visible, video:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 6px;
+    }
+    button:disabled { opacity: .45; cursor: wait; }
+    main { min-height: 100dvh; padding: 0 var(--gutter) 28px; }
+    .masthead {
+      display: flex; align-items: center; justify-content: space-between; gap: 24px;
+      min-height: 86px; border-bottom: 1px solid var(--line);
+    }
+    .brand {
+      display: inline-flex; align-items: baseline; gap: 13px;
+      font: 600 31px/1 var(--display); letter-spacing: -.065em;
+    }
+    .brand::before { content: ""; width: 8px; height: 22px; background: var(--accent); transform: skewY(-18deg); }
+    .metadata { display: flex; align-items: center; gap: 24px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+    .metadata span + span { padding-left: 24px; border-left: 1px solid var(--line); }
+    .intro { display: grid; gap: 12px; padding: 28px 0 24px; }
+    h1 { margin: 0; font: 600 clamp(36px, 4.4vw, 68px)/1.05 var(--display); letter-spacing: -.045em; }
+    .intro p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.5; }
+    .screen {
+      position: relative; margin: 0; isolation: isolate;
+      width: 100%; background: #000; overflow: hidden;
+      animation: screen-enter 640ms var(--motion-curve) both;
+    }
+    video { display: block; width: 100%; aspect-ratio: 16/9; background: #000; object-fit: contain; }
+    .media-status {
+      position: absolute; inset: 0; display: grid; place-content: center;
+      padding: 24px; text-align: center; color: var(--foreground); font-size: 15px;
+      background: rgb(11 11 11 / .86); pointer-events: none;
+      transition: opacity var(--motion-time) var(--motion-curve);
+    }
+    .media-status::before { content: ""; width: 110px; height: 2px; margin: 0 auto 20px; background: var(--line); }
+    .media-status::after {
+      content: ""; position: absolute; width: 28px; height: 2px;
+      left: calc(50% - 55px); top: calc(50% - 31px); background: var(--accent);
+      animation: loading-line 1.2s var(--motion-curve) infinite alternate;
+    }
+    .media-status .failure { display: none; max-width: 30em; line-height: 1.6; }
+    .screen[data-state="ready"] .media-status, .screen[data-state="playing"] .media-status { opacity: 0; visibility: hidden; }
+    .screen[data-state="error"] .waiting, .screen[data-state="error"] .media-status::after { display: none; }
+    .screen[data-state="error"] .failure { display: block; }
+    .screen[data-state="error"] .media-status::before { background: var(--accent); }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-top: 20px; }
+    .playback, .downloads { display: flex; align-items: center; gap: 12px; }
+    .button, .download {
+      min-height: 46px; display: inline-flex; align-items: center; justify-content: center;
+      padding: 11px 26px; border: 1px solid var(--line); border-radius: 0;
+      color: var(--foreground); background: transparent; cursor: pointer;
+      font-size: 14px; line-height: 1.5; white-space: nowrap;
+      transition: color var(--motion-time) var(--motion-curve), background var(--motion-time) var(--motion-curve), border-color var(--motion-time) var(--motion-curve), transform var(--motion-time) var(--motion-curve);
+    }
+    .button-primary { min-width: 98px; background: var(--foreground); border-color: var(--foreground); color: var(--background); }
+    .button-primary:hover { background: var(--accent); border-color: var(--accent); }
+    .button-secondary:hover { border-color: var(--foreground); }
+    .download { background: var(--accent); border-color: var(--accent); color: var(--background); }
+    .download:hover { background: var(--foreground); border-color: var(--foreground); }
+    .button:active, .download:active { transform: translateY(2px); }
+    .music { margin-left: 10px; padding: 12px 0; color: var(--muted); font-size: 14px; white-space: nowrap; }
+    .music span {
+      display: inline-block; padding-bottom: 3px; border-bottom: 1px solid var(--line);
+      transition: color var(--motion-time) var(--motion-curve), border-color var(--motion-time) var(--motion-curve);
+    }
+    .music:hover span { color: var(--foreground); border-color: var(--accent); }
+    .timeline {
+      flex: 1; margin: 0 18px; font-size: 13px; font-variant-numeric: tabular-nums;
+      color: var(--muted); white-space: nowrap;
+    }
+    .timeline-current { color: var(--foreground); }
+    .timeline-divider { display: inline-block; padding: 0 8px; color: var(--muted); }
+    .intro, .masthead, .toolbar { animation: type-enter 520ms var(--motion-curve) both; }
+    .intro { animation-delay: 60ms; }
+    .toolbar { animation-delay: 150ms; }
+    @keyframes screen-enter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes type-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes loading-line { from { transform: translateX(0); } to { transform: translateX(82px); } }
+    @media (min-width: 1440px) and (min-height: 850px) {
+      main { padding-bottom: 30px; }
+      .masthead { min-height: 92px; }
+      .intro { padding: 32px 0 28px; }
+    }
+    @media (max-width: 767px) {
+      main { padding-bottom: 24px; }
+      .masthead { min-height: 74px; gap: 14px; }
+      .brand { font-size: 25px; gap: 10px; }
+      .brand::before { width: 6px; height: 18px; }
+      .metadata { gap: 10px; font-size: 11px; }
+      .metadata span + span { padding-left: 10px; }
+      .intro { padding: 26px 0 20px; }
+      h1 { font-size: clamp(32px, 7vw, 46px); }
+      .intro p { font-size: 14px; }
+      .toolbar { flex-wrap: wrap; row-gap: 17px; }
+      .playback { gap: 10px; }
+      .timeline { flex: none; margin: 0 0 0 auto; font-size: 12px; }
+      .downloads { flex-basis: 100%; gap: 18px; }
+      .button, .download { min-height: 44px; padding: 10px 21px; }
+      .music { margin-left: 0; }
+      .media-status { font-size: 13px; }
+    }
+    @media (max-width: 420px) {
+      .metadata { flex-direction: column; align-items: flex-end; gap: 5px; }
+      .metadata span + span { padding-left: 0; border-left: 0; }
+      .timeline { font-size: 11px; }
+      .timeline-divider { padding: 0 4px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <div class="brand">{{brand}}</div>
+      <div class="metadata"><span>{{duration}}</span><span>{{quality}}</span></div>
+    </header>
+    <div class="intro">
+      <h1>{{director}}</h1>
+      <p>{{playerIntro}}</p>
+    </div>
+    <figure class="screen" id="screen" data-state="loading">
+      <video id="film" controls playsinline preload="metadata" poster="Cursorama-v2-封面.png" aria-label="{{playerTitle}}">
+        <source src="{{outputName}}" type="video/mp4">
+      </video>
+      <div class="media-status" id="media-status" role="status" aria-live="polite">
+        <span class="waiting">{{loading}}</span>
+        <span class="failure">{{videoError}}</span>
+      </div>
+    </figure>
+    <footer class="toolbar">
+      <div class="playback">
+        <button class="button button-primary" id="toggle" type="button" aria-controls="film" data-play="{{play}}" data-pause="{{pause}}">{{play}}</button>
+        <button class="button button-secondary" id="restart" type="button" aria-controls="film">{{restart}}</button>
+      </div>
+      <div class="timeline" aria-hidden="true"><span class="timeline-current" id="current-time"></span><span class="timeline-divider">/</span><span id="total-time"></span></div>
+      <nav class="downloads">
+        <a class="download" href="{{outputName}}" download>{{download}}</a>
+        <a class="music" href="Cursorama-v2-原创配乐.wav" download><span>{{music}}</span></a>
+      </nav>
+    </footer>
+  </main>
+  <script>
+    /** 本地成片的播放状态同步；所有固定文字由 catalog 模板提供。 */
+    (() => {
+      const video = document.getElementById('film');
+      const screen = document.getElementById('screen');
+      const toggle = document.getElementById('toggle');
+      const restart = document.getElementById('restart');
+      const current = document.getElementById('current-time');
+      const total = document.getElementById('total-time');
+      if (!(video instanceof HTMLVideoElement) || !(screen instanceof HTMLElement) || !(toggle instanceof HTMLButtonElement) || !(restart instanceof HTMLButtonElement) || !(current instanceof HTMLElement) || !(total instanceof HTMLElement)) return;
+      const abort = new AbortController();
+      const events = { signal: abort.signal };
+      const clock = { secondsPerMinute: 60, digits: 2, defaultDuration: 44, pauseOnPageHide: true };
+      let failed = false;
+
+      /** @param {number} seconds @returns {string} */
+      function timeCode(seconds) {
+        const value = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+        return `${Math.floor(value / clock.secondsPerMinute)}:${String(value % clock.secondsPerMinute).padStart(clock.digits, '0')}`;
+      }
+      function synchronize() {
+        const playing = !video.paused && !video.ended;
+        toggle.textContent = playing ? toggle.dataset.pause : toggle.dataset.play;
+        toggle.setAttribute('aria-label', toggle.textContent ?? '');
+        screen.dataset.state = failed ? 'error' : playing ? 'playing' : video.readyState >= HTMLMediaElement.HAVE_METADATA ? 'ready' : 'loading';
+        current.textContent = timeCode(video.currentTime);
+        total.textContent = timeCode(Number.isFinite(video.duration) ? video.duration : clock.defaultDuration);
+        toggle.disabled = failed;
+        restart.disabled = failed;
+      }
+      async function play() {
+        try { await video.play(); }
+        catch (error) {
+          if (error instanceof DOMException && (error.name === 'AbortError' || error.name === 'NotAllowedError')) { synchronize(); return; }
+          failed = true; synchronize(); console.error('PROMO_VIDEO_PLAY_FAILED', error);
+        }
+      }
+      toggle.addEventListener('click', () => { if (video.paused || video.ended) void play(); else video.pause(); }, events);
+      restart.addEventListener('click', () => { video.currentTime = 0; void play(); }, events);
+      for (const event of ['loadedmetadata', 'canplay', 'play', 'pause', 'ended', 'timeupdate']) video.addEventListener(event, synchronize, events);
+      video.addEventListener('error', () => { failed = true; synchronize(); }, events);
+      video.querySelector('source')?.addEventListener('error', () => { failed = true; synchronize(); }, events);
+      window.addEventListener('pagehide', (event) => { if (clock.pauseOnPageHide) video.pause(); if (!event.persisted) abort.abort(); }, events);
+      synchronize();
+    })();
+  </script>
+</body>
+</html>

@@ -5,12 +5,21 @@ import { SCORE_TIMING } from './score';
 export interface StereoBuffer { left: Float32Array; right: Float32Array; sampleRate: number; }
 export interface RenderedScore { audio: StereoBuffer; duration: number; waveform: number[]; }
 type Random = () => number;
-interface InstrumentVoice { partials: readonly number[]; ratios: readonly number[]; attack: number; decay: number; release: number; }
+type DrumKind = 'kick' | 'snare' | 'hat' | 'shaker' | 'rim';
+interface InstrumentVoice { partials: readonly number[]; ratios: readonly number[]; attack: number; decay: number; release: number; vibrato?: number; }
+interface DrumPattern { gain: number; kicks: readonly number[]; snares: readonly number[]; tops: readonly number[]; snare: DrumKind; top: DrumKind; snareGain: number; topGain: number; }
 
 export const SYNTH_AUDIO = { sampleRate: 44_100, channels: 2, bitDepth: 16, waveformBars: 44, peak: 0.72 } as const;
 const HARMONY = { referenceMidi: 69, referenceHz: 440, octave: 12, pianoDecayScale: 0.004, maxHumanDelay: 0.012, velocityRange: 0.18, phraseBars: 8, introBars: 2, outroBars: 2 } as const;
 const MIX = { fadeIn: 0.9, fadeOut: 2.4, stereoWidth: 0.6, reverbCross: 0.28, reverbFeedback: 0.26, saturation: 0.83, lowPass: 11_000, noiseScale: 2, noiseOffset: 1 } as const;
 const DRUMS = { kickLength: 0.36, kickBase: 47, kickBend: 68, kickBendRate: 34, kickDecay: 12, snareLength: 0.24, snareLow: 700, snareHigh: 5200, snareDecay: 18, snareBody: 170, hatLength: 0.13, hatLow: 4400, hatHigh: 7900, hatDecay: 37, noiseGain: 0.78, bodyGain: 0.16, brushGain: 0.075, softGain: 0.145, pulseGain: 0.16, hatRatio: 0.31 } as const;
+const COLOR = { vibratoRate: 5.2, shakerLength: 0.12, shakerLow: 2800, shakerHigh: 7100, shakerDecay: 23, rimLength: 0.095, rimLow: 1100, rimHigh: 6500, rimDecay: 55, rimBody: 1350, rimBodyGain: 0.34 } as const;
+const EXPRESSION = { swellMinimum: 0.48, swellRange: 0.52, walkingNote: 0.72, walkingGain: 0.88, walkingAccent: 1.08, voiceStrum: 0.035, defaultCompingLength: 3.2 } as const;
+const CHARACTER_RHYTHMS: Record<'folk' | 'bossa' | 'retro', DrumPattern> = {
+  folk: { gain: 0.092, kicks: [0, 2], snares: [1, 3], tops: [0.5, 1.5, 2.5, 3.5], snare: 'rim', top: 'shaker', snareGain: 0.38, topGain: 0.46 },
+  bossa: { gain: 0.09, kicks: [0, 1.5, 2.5], snares: [1, 2.5, 3.5], tops: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5], snare: 'rim', top: 'shaker', snareGain: 0.4, topGain: 0.32 },
+  retro: { gain: 0.12, kicks: [0, 1.5, 3], snares: [2], tops: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5], snare: 'snare', top: 'hat', snareGain: 0.52, topGain: 0.2 },
+};
 const INSTRUMENTS: Record<Instrument, InstrumentVoice> = {
   piano: { partials: [1, 0.3, 0.135, 0.057, 0.024], ratios: [1, 2, 3.002, 4.009, 5.018], attack: 0.008, decay: 1.65, release: 0.28 },
   electric: { partials: [1, 0.155, 0.075, 0.016], ratios: [1, 2, 3, 6.006], attack: 0.014, decay: 1.05, release: 0.38 },
@@ -18,6 +27,10 @@ const INSTRUMENTS: Record<Instrument, InstrumentVoice> = {
   pluck: { partials: [1, 0.16, 0.04, 0.009], ratios: [1, 2, 3, 4], attack: 0.006, decay: 3.7, release: 0.16 },
   mallet: { partials: [1, 0.115, 0.038], ratios: [1, 2.76, 4.12], attack: 0.011, decay: 2.3, release: 0.3 },
   bass: { partials: [1, 0.1, 0.035], ratios: [1, 2, 3], attack: 0.023, decay: 0.48, release: 0.16 },
+  guitar: { partials: [1, 0.31, 0.15, 0.065, 0.034, 0.018], ratios: [1, 2, 3.001, 4.003, 5.007, 6.012], attack: 0.004, decay: 2.1, release: 0.22 },
+  reed: { partials: [1, 0.06, 0.21, 0.025, 0.068, 0.012], ratios: [1, 2, 3, 4, 5, 7], attack: 0.07, decay: 0.46, release: 0.21, vibrato: 0.035 },
+  strings: { partials: [0.63, 0.26, 0.18, 0.09, 0.045, 0.025], ratios: [0.998, 1.002, 2, 3, 4, 5], attack: 0.23, decay: 0.055, release: 0.82, vibrato: 0.018 },
+  retro: { partials: [1, 0.21, 0.1, 0.045, 0.02], ratios: [1, 3, 5, 7, 9], attack: 0.005, decay: 2.3, release: 0.1 },
 };
 const REVERB_TAPS = [0.109, 0.173, 0.283, 0.421] as const;
 const MELODY_STEPS = [0, 0.75, 1.5, 2, 2.75, 3.5] as const;
@@ -49,10 +62,11 @@ function note(buffer: StereoBuffer, midi: number, start: number, length: number,
     const time = (index - startSample) / buffer.sampleRate;
     const attack = Math.min(1, time / voice.attack);
     const release = time > length ? Math.max(0, 1 - (time - length) / voice.release) ** 2 : 1;
+    const vibrato = voice.vibrato ? Math.sin(Math.PI * 2 * COLOR.vibratoRate * time) * voice.vibrato : 0;
     let value = 0;
     for (let partial = 0; partial < voice.partials.length; partial++) {
       const harmonicDecay = Math.exp(-time * decay * (1 + partial * 0.35));
-      value += Math.sin(omega * voice.ratios[partial] * time) * voice.partials[partial] * harmonicDecay;
+      value += Math.sin(omega * voice.ratios[partial] * time + vibrato) * voice.partials[partial] * harmonicDecay;
     }
     value *= attack * release;
     buffer.left[index] += value * leftGain;
@@ -60,12 +74,12 @@ function note(buffer: StereoBuffer, midi: number, start: number, length: number,
   }
 }
 
-function drum(buffer: StereoBuffer, start: number, kind: 'kick' | 'snare' | 'hat', gain: number, random: Random): void {
-  const length = kind === 'kick' ? DRUMS.kickLength : kind === 'snare' ? DRUMS.snareLength : DRUMS.hatLength;
+function drum(buffer: StereoBuffer, start: number, kind: DrumKind, gain: number, random: Random): void {
+  const length = kind === 'kick' ? DRUMS.kickLength : kind === 'snare' ? DRUMS.snareLength : kind === 'shaker' ? COLOR.shakerLength : kind === 'rim' ? COLOR.rimLength : DRUMS.hatLength;
   const begin = Math.max(0, Math.floor(start * buffer.sampleRate));
   const end = Math.min(buffer.left.length, Math.ceil((start + length) * buffer.sampleRate));
-  const low = kind === 'hat' ? DRUMS.hatLow : DRUMS.snareLow;
-  const high = kind === 'hat' ? DRUMS.hatHigh : DRUMS.snareHigh;
+  const low = kind === 'hat' ? DRUMS.hatLow : kind === 'shaker' ? COLOR.shakerLow : kind === 'rim' ? COLOR.rimLow : DRUMS.snareLow;
+  const high = kind === 'hat' ? DRUMS.hatHigh : kind === 'shaker' ? COLOR.shakerHigh : kind === 'rim' ? COLOR.rimHigh : DRUMS.snareHigh;
   const lowAlpha = 1 - Math.exp(-Math.PI * 2 * low / buffer.sampleRate);
   const highAlpha = 1 - Math.exp(-Math.PI * 2 * high / buffer.sampleRate);
   let lowNoise = 0;
@@ -80,18 +94,29 @@ function drum(buffer: StereoBuffer, start: number, kind: 'kick' | 'snare' | 'hat
       const noise = random() * MIX.noiseScale - MIX.noiseOffset;
       lowNoise += lowAlpha * (noise - lowNoise);
       highNoise += highAlpha * (noise - highNoise);
-      const decay = kind === 'snare' ? DRUMS.snareDecay : DRUMS.hatDecay;
+      const decay = kind === 'snare' ? DRUMS.snareDecay : kind === 'shaker' ? COLOR.shakerDecay : kind === 'rim' ? COLOR.rimDecay : DRUMS.hatDecay;
       value = (highNoise - lowNoise) * DRUMS.noiseGain * Math.exp(-time * decay);
       if (kind === 'snare') value += Math.sin(Math.PI * 2 * DRUMS.snareBody * time) * DRUMS.bodyGain * Math.exp(-time * decay);
+      if (kind === 'rim') value += Math.sin(Math.PI * 2 * COLOR.rimBody * time) * COLOR.rimBodyGain * Math.exp(-time * decay);
     }
     value *= Math.min(1, time / INSTRUMENTS.pluck.attack) * Math.max(0, 1 - time / length) * gain;
-    buffer.left[index] += value * (kind === 'hat' ? 0.48 : 0.7);
-    buffer.right[index] += value * (kind === 'hat' ? 0.82 : 0.7);
+    buffer.left[index] += value * (kind === 'hat' || kind === 'shaker' ? 0.48 : 0.7);
+    buffer.right[index] += value * (kind === 'hat' || kind === 'shaker' ? 0.82 : 0.7);
   }
 }
 
 function rhythm(buffer: StereoBuffer, score: Score, bar: number, beat: number, start: number, random: Random): void {
   if (score.rhythm === 'none' || bar < HARMONY.introBars || bar >= score.bars - HARMONY.outroBars) return;
+  if (score.rhythm === 'folk' || score.rhythm === 'bossa' || score.rhythm === 'retro') {
+    const pattern = CHARACTER_RHYTHMS[score.rhythm];
+    for (const position of pattern.kicks) drum(buffer, start + position * beat, 'kick', pattern.gain, random);
+    for (const position of pattern.snares) drum(buffer, start + position * beat, pattern.snare, pattern.gain * pattern.snareGain, random);
+    for (const [index, position] of pattern.tops.entries()) {
+      const delayed = position + (index % 2 ? score.swing : 0);
+      drum(buffer, start + delayed * beat, pattern.top, pattern.gain * pattern.topGain * (index % 2 ? 0.72 : 1), random);
+    }
+    return;
+  }
   const gain = score.rhythm === 'brush' ? DRUMS.brushGain : score.rhythm === 'soft' ? DRUMS.softGain : DRUMS.pulseGain;
   const variant = bar % HARMONY.phraseBars;
   const kicks = score.rhythm === 'pulse' ? [0, 1, 2, 3] : variant === 6 ? [0, 1.75, 2.5] : [0, 2.25];
@@ -111,31 +136,40 @@ function arrangeBar(dry: StereoBuffer, wet: StereoBuffer, score: Score, bar: num
   const chord = score.chords[harmonyIndex];
   const section = Math.floor(bar / HARMONY.phraseBars);
   const resolving = bar >= score.bars - HARMONY.outroBars;
+  const expression = score.swell ? EXPRESSION.swellMinimum + Math.sin(Math.PI * (bar + 1) / score.bars) * EXPRESSION.swellRange : 1;
   const velocity = (): number => 1 - HARMONY.velocityRange / 2 + random() * HARMONY.velocityRange;
   for (let voice = 0; voice < chord.length; voice++) {
     const spread = (voice / (chord.length - 1) - 0.5) * MIX.stereoWidth;
-    note(wet, chord[voice] + HARMONY.octave, start, SCORE_TIMING.beatsPerBar * beat, score.pad / chord.length, spread, 'pad');
+    note(wet, chord[voice] + HARMONY.octave, start, SCORE_TIMING.beatsPerBar * beat, score.pad / chord.length * expression, spread, 'pad');
   }
-  note(dry, chord[0] - HARMONY.octave, start + HARMONY.maxHumanDelay, beat * (resolving ? 3.6 : 1.7), score.bass * velocity(), 0, 'bass');
-  if (score.rhythm !== 'none' && !resolving) note(dry, chord[0] - HARMONY.octave, start + beat * 2.35, beat * 1.35, score.bass * 0.72 * velocity(), 0, 'bass');
+  if (score.rhythm === 'bossa' && !resolving) {
+    const nextChord = score.chords[(bar + 1) % score.chords.length];
+    const walking = [chord[0] - HARMONY.octave, chord[1] - HARMONY.octave, chord[2] - HARMONY.octave, nextChord[0] - HARMONY.octave - 1];
+    for (const [position, midi] of walking.entries()) note(dry, midi, start + position * beat, beat * EXPRESSION.walkingNote, score.bass * velocity() * (position ? EXPRESSION.walkingGain : EXPRESSION.walkingAccent), 0, 'bass');
+  } else {
+    note(dry, chord[0] - HARMONY.octave, start + HARMONY.maxHumanDelay, beat * (resolving ? 3.6 : 1.7), score.bass * velocity() * expression, 0, 'bass');
+    if (score.rhythm !== 'none' && !resolving) note(dry, chord[0] - HARMONY.octave, start + beat * 2.35, beat * 1.35, score.bass * 0.72 * velocity(), 0, 'bass');
+  }
   if (score.arpeggio && !resolving) {
-    const accompaniment = score.instrument === 'piano' ? 'piano' : 'electric';
+    const accompaniment = score.accompaniment ?? (score.instrument === 'piano' ? 'piano' : 'electric');
     for (let step = 0; step < ARPEGGIO_ORDER.length; step++) {
-      const midi = chord[ARPEGGIO_ORDER[step]] + HARMONY.octave;
+      const midi = chord[ARPEGGIO_ORDER[step]] + HARMONY.octave * (score.accompanimentOctave ?? 1);
       const position = step / 2 + (step % 2 ? score.swing : 0);
       note(wet, midi, start + position * beat + random() * HARMONY.maxHumanDelay, beat * 1.5, score.melodyGain * 0.35 * velocity(), -0.3, accompaniment);
     }
   } else if (!score.arpeggio) {
-    for (let voice = 1; voice < chord.length; voice++) note(wet, chord[voice] + HARMONY.octave, start + voice * 0.035, beat * 3.2, score.melodyGain * 0.26 * velocity(), -0.3, 'electric');
+    for (const position of score.accompanimentSteps ?? [0]) {
+      for (let voice = 1; voice < chord.length; voice++) note(wet, chord[voice] + HARMONY.octave * (score.accompanimentOctave ?? 1), start + position * beat + voice * EXPRESSION.voiceStrum, beat * (score.accompanimentLength ?? EXPRESSION.defaultCompingLength), score.melodyGain * 0.26 * velocity() * expression, -0.3, score.accompaniment ?? 'electric');
+    }
   }
   if (bar >= HARMONY.introBars && !resolving && bar % HARMONY.phraseBars !== HARMONY.phraseBars - 1) {
     const melody = score.melody[harmonyIndex];
-    const steps = score.rhythm === 'none' ? AMBIENT_STEPS : MELODY_STEPS;
+    const steps = score.melodySteps ?? (score.rhythm === 'none' ? AMBIENT_STEPS : MELODY_STEPS);
     for (let index = 0; index < steps.length; index++) {
       if (section === 0 && index % 3 === 2) continue;
       const phraseIndex = section === 1 ? (index + 2) % melody.length : index % melody.length;
       const position = steps[index] + (index % 2 ? score.swing * 0.3 : 0);
-      note(wet, melody[phraseIndex], start + position * beat + random() * HARMONY.maxHumanDelay, beat * (score.rhythm === 'none' ? 1.3 : 0.72), score.melodyGain * velocity(), 0.25, score.instrument);
+      note(wet, melody[phraseIndex], start + position * beat + random() * HARMONY.maxHumanDelay, beat * (score.melodyLength ?? (score.rhythm === 'none' ? 1.3 : 0.72)), score.melodyGain * velocity() * expression, 0.25, score.instrument);
     }
   }
   if (resolving) note(wet, chord[1] + HARMONY.octave * 2, start + beat * 0.6, beat * 3.1, score.melodyGain * 0.58, 0.1, score.instrument);

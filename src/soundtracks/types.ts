@@ -1,5 +1,5 @@
-export type SoundtrackId = 'clear-morning' | 'quiet-current' | 'soft-grid' | 'neon-focus' | 'cloud-atlas' | 'midnight-ink';
-export type SoundtrackCategory = 'piano' | 'ambient' | 'electronic';
+export type SoundtrackId = 'clear-morning' | 'quiet-current' | 'soft-grid' | 'neon-focus' | 'cloud-atlas' | 'midnight-ink' | 'paper-lantern' | 'velvet-cafe' | 'silver-screen' | 'pixel-journey';
+export type SoundtrackCategory = 'piano' | 'ambient' | 'electronic' | 'acoustic' | 'jazz' | 'cinematic' | 'retro';
 export type SoundtrackFilter = 'all' | SoundtrackCategory;
 
 export interface Soundtrack {

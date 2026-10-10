@@ -27,3 +27,4 @@ export * from './RecordingSurfaceApp';
 export * from './EditPanel';
 export * from './SoundtrackPanel';
 export * from './FocusSoundControl';
+export * from './MusicWaveform';

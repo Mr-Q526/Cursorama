@@ -6,10 +6,11 @@ const AUDIO_MANIFEST: SoundtrackAudioManifest = manifest;
 const CATEGORIES: Record<SoundtrackId, SoundtrackCategory> = {
   'clear-morning': 'piano', 'quiet-current': 'ambient', 'soft-grid': 'electronic',
   'neon-focus': 'electronic', 'cloud-atlas': 'ambient', 'midnight-ink': 'piano',
+  'paper-lantern': 'acoustic', 'velvet-cafe': 'jazz', 'silver-screen': 'cinematic', 'pixel-journey': 'retro',
 };
 
 export const SOUNDTRACK_IDS = Object.keys(CATEGORIES) as SoundtrackId[];
-export const SOUNDTRACK_FILTERS = ['all', 'piano', 'ambient', 'electronic'] as const;
+export const SOUNDTRACK_FILTERS = ['all', 'piano', 'ambient', 'electronic', 'acoustic', 'jazz', 'cinematic', 'retro'] as const;
 export const SOUNDTRACKS: readonly Soundtrack[] = SOUNDTRACK_IDS.map((id) => ({
   id, category: CATEGORIES[id], file: `${MUSIC_BASE}${id}.mp3`, ...AUDIO_MANIFEST.tracks[id],
 }));

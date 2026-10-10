@@ -101,10 +101,10 @@ export function FocusSoundControl({ setting, onChange, onPreviewStart, disabled 
     event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
   };
 
-  return <details className="focus-sound-control" aria-label={copy.title}>
+  return <details className="focus-sound-control" aria-label={copy.title} onToggle={(event) => { if (!event.currentTarget.open) stop(); }}>
     <summary><span>{copy.title}</span><small>{setting.enabled ? `${copy.sounds[setting.id].title} · ${formatPercent(setting.volume * PERCENT)}` : copy.disabledSummary}</small><CaretDownIcon size={13} /></summary>
     <div className="focus-sound-body">
-    <Toggle label={copy.enabled} checked={setting.enabled} description={copy.hint} onChange={toggle} />
+    <Toggle label={copy.enabled} checked={setting.enabled} onChange={toggle} />
     <div className="focus-sound-options" role="radiogroup" aria-label={copy.selection} onKeyDown={selectionKey}>
       {FOCUS_SOUND_IDS.map((id) => {
         const sound = FOCUS_SOUND_ASSETS[id];
@@ -114,14 +114,14 @@ export function FocusSoundControl({ setting, onChange, onPreviewStart, disabled 
         const playing = active === id;
         const pending = loading === id;
         return <div key={id} className={`focus-sound-option${current ? ' selected' : ''}${playing ? ' playing' : ''}`} data-focus-sound-id={id}>
-          <button type="button" className="focus-sound-select" role="radio" aria-checked={current} tabIndex={current ? 0 : -1} onClick={() => selected(id)}><span className="focus-sound-glyph"><Glyph size={17} /></span><span><strong>{item.title}</strong><small>{item.description}</small></span>{current && <CheckIcon className="focus-sound-check" size={12} weight="bold" />}</button>
+          <button type="button" className="focus-sound-select" role="radio" aria-checked={current} tabIndex={current ? 0 : -1} title={item.description} onClick={() => selected(id)}><span className="focus-sound-glyph"><Glyph size={16} /></span><span><strong>{item.title}</strong></span>{current && <CheckIcon className="focus-sound-check" size={12} weight="bold" />}</button>
           <button type="button" className="focus-sound-preview" disabled={disabled} title={`${playing || pending ? copy.stop : copy.preview} · ${item.title}`} aria-label={`${playing || pending ? copy.stop : copy.preview} · ${item.title}`} aria-pressed={playing} onClick={() => void preview(id)}>{pending ? <CircleNotchIcon className="focus-sound-loading" size={15} /> : playing ? <PauseIcon size={14} weight="fill" /> : <PlayIcon size={14} weight="fill" />}</button>
           <span className="focus-sound-duration">{sound.duration.toFixed(2)} {copy.durationUnit}</span>
         </div>;
       })}
     </div>
     <div className="slider-stack"><Slider label={copy.volume} value={setting.volume * PERCENT} min={0} max={PERCENT} display={formatPercent(setting.volume * PERCENT)} onChange={(volume) => onChange({ ...setting, volume: volume / PERCENT })} /></div>
-    <p className="field-hint">{setting.enabled ? copy.coexist : copy.disabled}</p>
+    <p className="field-hint">{copy.hint}</p>
     {loading && <p className="field-hint" role="status">{copy.loading}</p>}
     {failed && <p className="focus-sound-error" role="alert">{copy.failed}</p>}
     </div>
