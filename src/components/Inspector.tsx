@@ -28,7 +28,7 @@ const TABS: EditorTab[] = ['edit', 'motion', 'cursor', 'background', 'canvas', '
 
 export function Inspector({ project, tab, onTab, onSettings, onPreset, selectedClip, onClip, onDeleteClip, onTrim, editing, audioPanel, backgroundImage, onBackgroundImage, onRemoveBackgroundImage }: InspectorProps) {
   const s = project.settings; const copy = t.editor; const embeddedCursor = hasEmbeddedCursor(project);
-  return <aside className="inspector"><div className="inspector-tabs" role="tablist" aria-label={t.studio.tools}>{TABS.map((item) => { const Glyph = TAB_ICONS[item]; return <button role="tab" type="button" aria-selected={tab === item} key={item} className={tab === item ? 'selected' : ''} onClick={() => onTab(item)}><Glyph size={17} /><span>{item === 'edit' ? t.editing.tab : item === 'audio' ? t.studio.audio : copy[item]}</span></button>; })}</div><div className="inspector-scroll" key={tab}>
+  return <aside className="inspector"><div className="inspector-tabs" role="tablist" aria-label={t.studio.tools}>{TABS.map((item) => { const Glyph = TAB_ICONS[item]; return <button role="tab" type="button" data-tab={item} aria-selected={tab === item} key={item} className={tab === item ? 'selected' : ''} onClick={() => onTab(item)}><Glyph size={17} /><span>{item === 'edit' ? t.editing.tab : item === 'audio' ? t.studio.audio : copy[item]}</span></button>; })}</div><div className="inspector-scroll" key={tab}>
     <div className="inspector-heading"><h2>{t.studio.panel[tab]}</h2></div>
     {tab === 'edit' && <EditPanel project={project} {...editing} />}
     {tab === 'audio' && audioPanel}

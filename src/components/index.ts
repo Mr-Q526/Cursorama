@@ -5,7 +5,6 @@ export * from './Timeline';
 export * from './RecordDialog';
 export * from './ExportDialog';
 export * from './LibrarySidebar';
-export * from './EmptyWorkspace';
 export * from './ExportPreview';
 export * from './BackgroundPicker';
 export * from './BackgroundLibraryDialog';

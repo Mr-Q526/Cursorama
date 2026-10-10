@@ -5,17 +5,15 @@ import type { BackgroundImageAsset, EditorTab, EffectMode, ExportResult, Library
 import { AUTOSAVE_DELAY, backgroundImageMetadata, DEFAULT_SETTINGS, deleteSegment, EDITING_LIMITS, ensureEditing, focusSoundSettings, getSegments, insertVideoSegment, packProjectMedia, parseEditingTimeline, PRESETS, PROJECT_EXTENSION, projectBytes, readProjectBytes, resolveTimeline, SOURCE_MEDIA_ID, splitSegment, timelineDuration, TIME, updateSegment } from '../shared';
 import { createDemoProject, downloadBlob, generateClips, importMediaFile, loadVideo, projectMetadata, projectPreviewRevision, pruneProjectMedia, recordedFocus, releaseBackgroundImage, runtimeFromStored, startRecording } from './engine';
 import type { PreparedRecording, RecordingSession } from './engine';
-import { useAppPage, usePlayback, useTheme, useUpdates, type PrompterDraft } from './hooks';
-import { AppHeader, EmptyWorkspace, ExportDialog, ExportPreview, FocusSoundControl, IconButton, Inspector, LibraryPage, LibrarySidebar, Modal, Preview, RecordDialog, RecordingDock, SettingsDialog, SoundtrackPanel, StudioToolbar, Teleprompter, Timeline, UpdateNotice } from './components';
+import { useAppPage, useLibraryPreview, usePlayback, useTheme, useUpdates, type AppPage, type PrompterDraft } from './hooks';
+import { AppHeader, ExportDialog, ExportPreview, FocusSoundControl, IconButton, Inspector, LibraryPage, LibrarySidebar, Modal, Preview, RecordDialog, RecordingDock, SettingsDialog, SoundtrackPanel, StudioToolbar, Teleprompter, Timeline, UpdateNotice } from './components';
 import { insertSoundtrack, loadSoundtrackAsset } from './soundtracks';
 import type { Soundtrack } from './soundtracks';
-import { configureLibrary, hasLocalLibrary, listLibrary, openLibraryProject, openLibraryVideo, previewLibraryCover, revealLibrary, saveLibraryProject } from './library';
-import type { LibraryVideoSource } from './library';
-import type { EditSelection, SettingsPage } from './components';
+import { configureLibrary, hasLocalLibrary, listLibrary, openLibraryProject, previewLibraryCover, revealLibrary, saveLibraryProject } from './library';
+import type { EditSelection, LibraryFilter, SettingsPage } from './components';
 import { t } from './i18n';
 
 export type AppDialog = 'record' | 'export' | 'guide' | 'settings' | null;
-interface VideoSelection { projectId: string; video: LibraryVideo; source: LibraryVideoSource; }
 interface PendingSave { project: Project; promise: Promise<ExportResult>; }
 
 function dataFromProject(project: Project): ProjectData {
@@ -39,8 +37,9 @@ export function App() {
   const [library, setLibrary] = useState<LibrarySnapshot | null>(null);
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [libraryError, setLibraryError] = useState(false);
+  const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>('projects');
+  const [libraryQuery, setLibraryQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [videoSelection, setVideoSelection] = useState<VideoSelection | null>(null);
   const [tab, setTab] = useState<EditorTab>('background');
   const [selectedId, setSelectedId] = useState<string>();
   const [editSelection, setEditSelection] = useState<EditSelection>();
@@ -74,10 +73,11 @@ export function App() {
   const workspaceKey = currentRef.current.key;
   const playback = usePlayback(project);
   const { theme, setTheme } = useTheme();
-  const { page, navigate } = useAppPage();
+  const { page, previewTarget, navigate } = useAppPage();
   const copy = t.editor;
-  const busy = recording || processing || loading || mediaImporting || saving || storageBusy || countdown !== null || preparingUpdate || updates.state.status === 'installing';
   const notify = useCallback((message: string) => setToast(message), []);
+  const { videoSelection, previewLoading } = useLibraryPreview(page, previewTarget, () => { notify(t.library.videoFailed); navigate('library', { replace: true }); });
+  const busy = recording || processing || loading || previewLoading || mediaImporting || saving || storageBusy || countdown !== null || preparingUpdate || updates.state.status === 'installing';
 
   const refreshLibrary = useCallback(async (): Promise<void> => {
     if (!hasLocalLibrary) { setLibraryError(true); return; }
@@ -118,6 +118,9 @@ export function App() {
 
   useEffect(() => { void refreshLibrary(); }, [refreshLibrary]);
   useEffect(() => {
+    if ((page === 'workspace' && !project) || (page === 'preview' && !previewTarget) || !window.location.hash || window.location.hash === '#/settings') navigate('library', { replace: true });
+  }, [page, project, previewTarget, navigate]);
+  useEffect(() => {
     if (page !== 'workspace') { playback.pause(); void refreshLibrary(); }
   }, [page, playback.pause, refreshLibrary]);
   useEffect(() => {
@@ -150,11 +153,10 @@ export function App() {
     previousBackgroundUrl.current = nextUrl;
   }, [project?.backgroundImageAsset?.url]);
   useEffect(() => () => { if (previousBackgroundUrl.current) releaseBackgroundImage(previousBackgroundUrl.current); }, []);
-  useEffect(() => () => { if (videoSelection?.source.revoke) URL.revokeObjectURL(videoSelection.source.url); }, [videoSelection]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent): void => {
       const element = event.target;
-      if (page !== 'workspace' || !project || videoSelection || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || (element instanceof HTMLElement && (element.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName))) || dialog || busy) return;
+      if (page !== 'workspace' || !project || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || (element instanceof HTMLElement && (element.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName))) || dialog || busy) return;
       if (element instanceof HTMLElement && element.closest('button') && !element.closest('.playback-controls, .timeline-panel')) return;
       if (event.code === 'Space') { event.preventDefault(); void playback.toggle(); }
       if (event.code === 'ArrowLeft') { event.preventDefault(); playback.stepFrame(-1); }
@@ -162,7 +164,7 @@ export function App() {
       if (event.code === 'Delete' || event.code === 'Backspace') { event.preventDefault(); deleteEditRef.current(); }
     };
     window.addEventListener('keydown', keydown); return () => window.removeEventListener('keydown', keydown);
-  }, [page, project, videoSelection, dialog, busy, playback.toggle, playback.stepFrame]);
+  }, [page, project, dialog, busy, playback.toggle, playback.stepFrame]);
   useEffect(() => window.desktop?.onStopRecording(() => void stopRef.current()), []);
   useEffect(() => window.desktop?.onRecordingCommand((command) => recordingCommandRef.current(command)), []);
   useEffect(() => {
@@ -300,11 +302,18 @@ export function App() {
   };
   const replaceProject = (next: Project | null, id?: string, saved = false): void => {
     playback.pause(); currentRef.current = { project: next, projectId: id, key: currentRef.current.key + 1 };
-    setProject(next); setProjectId(id); setSelectedId(undefined); setEditSelection(undefined); setOriginal(false); setDirty(Boolean(next) && !saved); setVideoSelection(null);
-    navigate('workspace');
+    setProject(next); setProjectId(id); setSelectedId(undefined); setEditSelection(undefined); setOriginal(false); setTab('background'); setDirty(Boolean(next) && !saved);
+    navigate(next ? 'workspace' : 'library');
   };
   const flushCurrent = async (): Promise<void> => {
     if (project && dirty && hasLocalLibrary && (project.sourceType === 'video' || projectId || project.mediaAssets?.length || project.backgroundImage)) await persist(project, projectId);
+  };
+  const navigateToPage = (next: AppPage): void => {
+    if (busy) return;
+    playback.pause();
+    const showPage = (): void => navigate(next);
+    if (next !== 'library' || page !== 'workspace' || !project || !dirty || !hasLocalLibrary) { showPage(); return; }
+    void flushCurrent().then(showPage).catch((error: unknown) => { console.error('NAVIGATION_SAVE_FAILED', error); notify(t.library.saveFailed); });
   };
   const configureStorage = async (settings: StorageSettings): Promise<void> => {
     setStorageBusy(true);
@@ -379,12 +388,12 @@ export function App() {
     setLoading(true); playback.pause();
     try {
       await flushCurrent();
-      const source = video ? await openLibraryVideo(item.id, video.id, video.format) : undefined;
-      try {
+      if (video) {
+        navigate('preview', { preview: { projectId: item.id, videoId: video.id } });
+      } else {
         if (item.id !== currentRef.current.projectId) replaceProject(restoredProject(await openLibraryProject(item.id)), item.id, true);
-        setVideoSelection(source && video ? { projectId: item.id, video, source } : null);
         navigate('workspace');
-      } catch (error) { if (source?.revoke) URL.revokeObjectURL(source.url); throw error; }
+      }
     } catch (error) { console.error('LIBRARY_OPEN_FAILED', error); notify(video ? t.library.videoFailed : t.library.projectFailed); await refreshLibrary(); }
     finally { setLoading(false); }
   };
@@ -427,7 +436,12 @@ export function App() {
       recordingRef.current = active; setRecordingElapsed(0); setRecordingPaused(false); setRecording(true); setDialog(null);
     } finally { countdownAbort.current = null; setCountdown(null); }
   };
-  const record = (): void => { playback.pause(); navigate('workspace'); setVideoSelection(null); setDialog('record'); };
+  const record = (): void => {
+    if (busy) return;
+    playback.pause();
+    document.querySelector<HTMLVideoElement>('.export-preview-stage video')?.pause();
+    setDialog('record');
+  };
   const installUpdate = async (): Promise<void> => {
     if (busy) return;
     setPreparingUpdate(true); playback.pause();
@@ -436,11 +450,11 @@ export function App() {
     finally { setPreparingUpdate(false); }
   };
 
-  return <div className={`app-shell${window.desktop ? ' desktop-window' : ''}${page === 'workspace' && project && !videoSelection ? ' editing-workspace' : ''}`}>
-    <LibrarySidebar page={page} disabled={busy} settingsOpen={dialog === 'settings'} onNavigate={navigate} onSettings={() => { playback.pause(); setSettingsPage('appearance'); setDialog('settings'); void refreshLibrary(); }} onOpen={() => void open()} onImport={() => videoInput.current?.click()} onDemo={() => void changeWorkspace(createDemoProject())} onRecord={record} onAudio={() => { playback.pause(); navigate('workspace'); setVideoSelection(null); setTab('audio'); }} audioOpen={page === 'workspace' && !videoSelection && tab === 'audio'} audioAvailable={Boolean(project)} />
-    <AppHeader page={page} projectName={videoSelection ? project?.name : undefined} busy={busy} onBack={() => navigate('workspace')} />
+  return <div className={`app-shell${window.desktop ? ' desktop-window' : ''}${page === 'workspace' && project ? ' editing-workspace' : ''}`}>
+    <LibrarySidebar page={page} disabled={busy} settingsOpen={dialog === 'settings'} onNavigate={navigateToPage} onSettings={() => { playback.pause(); setSettingsPage('appearance'); setDialog('settings'); void refreshLibrary(); }} onDemo={() => void changeWorkspace(createDemoProject())} onRecord={record} />
+    <AppHeader page={page} projectName={page === 'preview' ? videoSelection?.video.name : project?.name} busy={busy} onLibrary={() => navigateToPage('library')} />
     <div className="app-main" data-page={page}>
-      {page === 'library' ? <LibraryPage library={library} error={libraryError} loading={libraryLoading} disabled={busy} projectId={videoSelection?.projectId ?? projectId} videoId={videoSelection?.video.id} onProject={(item) => void openStored(item)} onVideo={(item, video) => void openStored(item, video)} onRefresh={() => void refreshLibrary()} onRecord={record} onImport={() => videoInput.current?.click()} /> : videoSelection ? <ExportPreview video={videoSelection.video} url={videoSelection.source.url} onBack={() => setVideoSelection(null)} onReveal={() => void reveal(videoSelection.projectId, videoSelection.video.id)} onError={() => notify(t.library.videoFailed)} /> : project ? <>
+      {page === 'preview' && videoSelection ? <ExportPreview video={videoSelection.video} url={videoSelection.source.url} disabled={busy} onBack={() => navigateToPage('library')} onEdit={() => void openStored(videoSelection.project)} onReveal={() => void reveal(videoSelection.project.id, videoSelection.video.id)} onError={() => notify(t.library.videoFailed)} /> : page === 'workspace' && project ? <>
         <StudioToolbar project={project} projectId={projectId} dirty={dirty} saving={saving} busy={busy} onName={(name) => updateProject((current) => ({ ...current, name }))} onSave={() => void save()} onExport={() => { playback.pause(); setDialog('export'); }} onCloseDemo={() => void changeWorkspace(null)} />
         <div className="editor-layout"><main className="editor-center">
           <Preview project={project} playback={playback} original={original} onOriginal={setOriginal} onAspect={(aspect) => settingsChanged({ aspect })} />
@@ -450,7 +464,7 @@ export function App() {
           audioPanel={<><FocusSoundControl setting={focusSoundSettings(project.settings)} onChange={(focusSound) => { playback.pause(); settingsChanged({ focusSound }); }} onPreviewStart={playback.pause} disabled={mediaImporting || recording || processing || Boolean(dialog)} /><SoundtrackPanel project={project} time={playback.time} importing={mediaImporting || recording || processing || Boolean(dialog)} onInsert={(track) => void addSoundtrack(track)} onImport={() => chooseMedia('audio')} onSelectMusic={(id) => selectEdit({ kind: 'music', id })} onPreviewStart={playback.pause} /></>}
           editing={{ time: playback.time, selection: editSelection, importing: mediaImporting, onSplit: splitAtPlayhead, onDelete: deleteSelection, onImport: chooseMedia, onAddSubtitle: addSubtitle, onSelect: selectEdit, onSegment: segmentChanged, onMusic: musicChanged, onSubtitle: subtitleChanged }} />
         </div>
-      </> : <EmptyWorkspace onRecord={record} onImport={() => videoInput.current?.click()} onOpen={() => void open()} disabled={busy} />}
+      </> : page === 'library' ? <LibraryPage library={library} error={libraryError} loading={libraryLoading} disabled={busy} projectId={projectId} filter={libraryFilter} query={libraryQuery} onFilter={setLibraryFilter} onQuery={setLibraryQuery} onProject={(item) => void openStored(item)} onVideo={(item, video) => void openStored(item, video)} onRefresh={() => void refreshLibrary()} onRecord={record} onImportProject={() => void open()} onImportVideo={() => videoInput.current?.click()} /> : null}
     </div>
     <input type="file" className="visually-hidden" ref={videoInput} accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onChange={(event) => void importVideo(event)} /><input type="file" className="visually-hidden" ref={projectInput} accept={`.${PROJECT_EXTENSION}`} onChange={(event) => void importProject(event)} /><input type="file" className="visually-hidden" ref={mediaInput} data-editing-media accept="video/*,audio/*" onChange={(event) => void insertMedia(event)} />
     {dialog === 'record' && <RecordDialog onClose={() => setDialog(null)} onStart={beginRecording} />}
@@ -461,7 +475,7 @@ export function App() {
     {recording && !window.desktop && <div className="browser-recording-dock"><RecordingDock state={{ active: true, paused: recordingPaused, elapsed: recordingElapsed, pending: false, script: prompter.script, prompterVisible: prompter.enabled }} onCommand={recordingCommand} onPrompter={() => setPrompter((current) => ({ ...current, enabled: !current.enabled }))} /></div>}
     {recording && !window.desktop && prompter.enabled && <div className="browser-teleprompter"><Teleprompter script={prompter.script} recordingPaused={recordingPaused} onClose={() => setPrompter((current) => ({ ...current, enabled: false }))} /></div>}
     {countdown !== null && <div className="countdown-overlay" role="status"><span>{t.recording.countdown}</span><strong>{countdown}</strong><button className="soft-button" type="button" onClick={() => countdownAbort.current?.abort()}>{t.recording.cancelCountdown}</button></div>}
-    {(processing || loading) && <div className="processing-overlay"><ApertureIcon size={39} className="spin" /><p>{processing ? t.recording.processing : t.library.loading}</p></div>}
+    {(processing || loading || previewLoading) && <div className="processing-overlay"><ApertureIcon size={39} className="spin" /><p>{processing ? t.recording.processing : t.library.loading}</p></div>}
     {toast && <div className="toast" role="status"><CheckIcon size={16} /><span>{toast}</span><IconButton icon={XIcon} label={copy.close} onClick={() => setToast('')} size={15} /></div>}
   </div>;
 }

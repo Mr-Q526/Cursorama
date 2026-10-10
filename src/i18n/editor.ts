@@ -1,5 +1,5 @@
 export const editorCatalog = {
-  appName: 'Cursorama', tagline: '光标即导演', studio: '录屏工作室',
+  appName: 'Cursorama', tagline: '光标即导演',
   newRecording: '新建录制', importVideo: '导入视频', openProject: '打开项目', saveProject: '保存项目',
   exportVideo: '导出视频', localOnly: '本地处理', unsaved: '尚未保存', saved: '项目已保存',
   demoName: '把操作变成精彩的演示', demoBadge: '内置演示', recordingName: '我的演示录制',

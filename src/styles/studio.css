@@ -3,7 +3,6 @@
 .editing-workspace .library-sidebar { padding: 16px 8px 12px; align-items: center; }
 .editing-workspace .library-actions, .editing-workspace .sidebar-navigation { width: 100%; }
 .editing-workspace .library-actions button, .editing-workspace .sidebar-navigation button { width: 40px; height: 40px; min-height: 40px; margin: 0 auto; padding: 0; justify-content: center; }
-.editing-workspace .library-actions > div { flex-direction: column; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .editing-workspace .library-actions button > span, .editing-workspace .sidebar-link > span { display: none; }
 .editing-workspace .sidebar-navigation { gap: 10px; padding-top: 18px; }
 .editing-workspace .library-bottom { width: 100%; gap: 4px; padding-top: 12px; }

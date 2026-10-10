@@ -108,7 +108,7 @@ async function restore(setting: FocusSoundSettings): Promise<void> {
 
 export async function runFocusSoundUIQA(): Promise<FocusSoundUIReport> {
   if (!window.desktop) throw new Error('QA_FOCUS_SOUND_UI_DESKTOP_REQUIRED');
-  const launcher = document.querySelector<HTMLButtonElement>('[data-action="open-audio"]');
+  const launcher = document.querySelector<HTMLButtonElement>('.inspector-tabs [data-tab="audio"]');
   if (!launcher || launcher.disabled) throw new Error('QA_FOCUS_SOUND_UI_ENTRY');
   const originalTab = Array.from(document.querySelectorAll<HTMLButtonElement>('.inspector-tabs [role="tab"]')).find((element) => element.getAttribute('aria-selected') === 'true');
   launcher.click();

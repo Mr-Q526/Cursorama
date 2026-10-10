@@ -1,6 +1,7 @@
 import type { AppPage, AppTheme } from '../src/hooks';
 import type { SettingsPage } from '../src/components';
 import { t } from '../src/i18n';
+import { runRecordingCancellationUI } from './recording-ui-qa';
 
 export interface NavigationUIReport {
   independentLibrary: boolean;
@@ -15,9 +16,15 @@ export interface NavigationUIReport {
   configurableStorage: boolean;
   headerActionsRemoved: boolean;
   sidebarToolsAligned: boolean;
+  projectCardNavigation: boolean;
+  recordingCancelPreservesEditor: boolean;
+  recordingCancelPreservesLibrary: boolean;
+  sidebarImportActionsRemoved: boolean;
+  libraryImportMenu: boolean;
 }
 
 const UI_TIMING = { timeout: 10_000, poll: 50 } as const;
+let returnProjectId: string | undefined;
 
 async function waitUntil(read: () => boolean): Promise<void> {
   const deadline = performance.now() + UI_TIMING.timeout;
@@ -28,15 +35,49 @@ async function waitUntil(read: () => boolean): Promise<void> {
   throw new Error('QA_NAVIGATION_TIMEOUT');
 }
 
-function navigate(page: AppPage): void {
-  const control = document.querySelector<HTMLButtonElement>(`.library-sidebar [data-page="${page}"]`);
-  if (!control || control.disabled) throw new Error(`QA_NAVIGATION_UNAVAILABLE: ${page}`);
-  control.click();
+function rememberCurrentProject(): void {
+  const id = document.querySelector<HTMLElement>('.project-bar')?.dataset.projectId;
+  if (id) returnProjectId = id;
 }
 
 export async function navigatePageUI(page: AppPage): Promise<void> {
-  navigate(page);
-  await waitUntil(() => Boolean(document.querySelector(`.app-main[data-page="${page}"]`)));
+  rememberCurrentProject();
+  if (page === 'library') {
+    if (document.querySelector('.project-bar') && !document.querySelector<HTMLElement>('.project-bar')?.dataset.projectId) await saveCurrentProject();
+    const control = document.querySelector<HTMLButtonElement>('.library-sidebar [data-page="library"]');
+    if (!control || control.disabled) throw new Error('QA_LIBRARY_NAVIGATION_UNAVAILABLE');
+    control.click();
+    await waitUntil(() => Boolean(document.querySelector('.app-main[data-page="library"] .library-page')) && !document.querySelector('.processing-overlay'));
+    return;
+  }
+  if (page !== 'workspace') {
+    if (document.querySelector(`.app-main[data-page="${page}"]`)) return;
+    throw new Error(`QA_NAVIGATION_TARGET_REQUIRED: ${page}`);
+  }
+  if (document.querySelector('.app-main[data-page="workspace"] .project-bar')) return;
+  if (!returnProjectId || !document.querySelector('.library-page')) throw new Error('QA_PROJECT_CARD_TARGET_MISSING');
+  const id = returnProjectId;
+  const projects = document.querySelector<HTMLButtonElement>('.library-tabs button');
+  if (!projects || projects.disabled) throw new Error('QA_LIBRARY_PROJECT_FILTER_MISSING');
+  projects.click();
+  await waitUntil(() => projects.getAttribute('aria-pressed') === 'true');
+  await waitUntil(() => Boolean(document.querySelector<HTMLButtonElement>(`.library-card-open[data-project-id="${CSS.escape(id)}"]`)));
+  const card = document.querySelector<HTMLButtonElement>(`.library-card-open[data-project-id="${CSS.escape(id)}"]`);
+  if (!card || card.disabled) throw new Error('QA_PROJECT_CARD_UNAVAILABLE');
+  card.click();
+  await waitUntil(() => document.querySelector<HTMLElement>('.app-main[data-page="workspace"] .project-bar')?.dataset.projectId === id && Boolean(document.querySelector('.preview-stage canvas')) && !document.querySelector('.processing-overlay'));
+}
+
+async function saveCurrentProject(): Promise<string> {
+  const save = Array.from(document.querySelectorAll<HTMLButtonElement>('.project-bar button')).find((button) => button.title === t.editor.saveProject || button.textContent?.trim() === t.editor.saveProject);
+  if (!save) throw new Error('QA_NAVIGATION_SAVE_BUTTON_MISSING');
+  await waitUntil(() => !save.disabled);
+  save.click();
+  await waitUntil(() => Boolean(document.querySelector<HTMLElement>('.project-bar')?.dataset.projectId) && document.querySelector('.save-status')?.textContent === t.library.saved && !save.disabled);
+  const id = document.querySelector<HTMLElement>('.project-bar')?.dataset.projectId;
+  if (!id) throw new Error('QA_NAVIGATION_PROJECT_NOT_SAVED');
+  returnProjectId = id;
+  return id;
 }
 
 export async function openSettingsUI(): Promise<void> {
@@ -86,21 +127,38 @@ export async function setThemeUI(theme: AppTheme): Promise<void> {
   control.click();
   await waitUntil(() => document.documentElement.dataset.theme === theme && control.checked);
   await closeSettingsUI();
-  navigate('workspace');
   await waitUntil(() => Boolean(document.querySelector('.preview-stage canvas')));
 }
 
 export async function runNavigationUIQA(): Promise<NavigationUIReport> {
   const sourceName = document.querySelector<HTMLInputElement>('.project-name')?.value;
   if (!sourceName || document.querySelector('.app-footer') || document.querySelector('.app-header [aria-label="浅色主题"]')) throw new Error('QA_WORKSPACE_CHROME_INVALID');
+  const sourceId = await saveCurrentProject();
+  const stored = await window.desktop?.openLibraryProject(sourceId);
+  if (!stored || stored.data.name !== sourceName) throw new Error('QA_NAVIGATION_SAVED_PROJECT_MISMATCH');
+  await runRecordingCancellationUI();
   if (Array.from(document.querySelectorAll('.app-header button')).some((button) => button.textContent?.includes(t.editor.newRecording) || button.textContent?.includes(t.editor.exportVideo))) throw new Error('QA_HEADER_ACTIONS_REMAIN');
   const settingsBox = document.querySelector('[data-action="open-settings"]')?.getBoundingClientRect();
   const helpBox = document.querySelector('[data-action="open-demo"]')?.getBoundingClientRect();
   if (!settingsBox || !helpBox || settingsBox.right >= helpBox.left || settingsBox.top !== helpBox.top || settingsBox.height !== helpBox.height) throw new Error('QA_SIDEBAR_TOOLS_NOT_ALIGNED');
-  navigate('library');
-  await waitUntil(() => Boolean(document.querySelector('.library-page')));
+  await navigatePageUI('library');
   const sidebar = document.querySelector('.library-sidebar');
-  if (!sidebar || sidebar.querySelector('.library-tabs, .library-item, .library-search, .library-location') || document.querySelector('.preview-stage canvas')) throw new Error('QA_LIBRARY_NOT_INDEPENDENT');
+  if (!sidebar || sidebar.querySelector('.library-tabs, .library-item, .library-search, .library-location') || sidebar.querySelector('[data-page="workspace"], [data-action="open-audio"]') || document.querySelector('.preview-stage canvas')) throw new Error('QA_LIBRARY_NOT_INDEPENDENT');
+  const sidebarActions = sidebar.querySelector('.library-actions');
+  const importActions = Array.from(sidebar.querySelectorAll<HTMLButtonElement>('button')).filter((button) => [t.editor.openProject, t.library.import].some((label) => button.getAttribute('aria-label') === label || button.textContent?.trim() === label));
+  if (!sidebarActions || sidebarActions.querySelectorAll('button').length !== 1 || !sidebarActions.querySelector('.sidebar-record') || importActions.length) throw new Error('QA_SIDEBAR_IMPORT_ACTIONS_REMAIN');
+  const importMenuButton = document.querySelector<HTMLButtonElement>('.library-import-menu [aria-haspopup="menu"]');
+  if (!importMenuButton || importMenuButton.disabled || importMenuButton.textContent?.trim() !== t.library.import) throw new Error('QA_LIBRARY_IMPORT_MENU_MISSING');
+  const libraryRoute = window.location.hash;
+  importMenuButton.click();
+  await waitUntil(() => importMenuButton.getAttribute('aria-expanded') === 'true' && Boolean(document.querySelector('.library-import-options[role="menu"]')));
+  const menuItems = Array.from(document.querySelectorAll<HTMLButtonElement>('.library-import-options [role="menuitem"]'));
+  if (menuItems.length !== 2 || ![t.library.importProject, t.library.importVideo].every((label) => menuItems.some((item) => item.textContent?.trim() === label && !item.disabled))) throw new Error('QA_LIBRARY_IMPORT_MENU_ITEMS_MISSING');
+  await waitUntil(() => document.activeElement === menuItems[0]);
+  menuItems[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await waitUntil(() => importMenuButton.getAttribute('aria-expanded') === 'false' && !document.querySelector('.library-import-options'));
+  if (window.location.hash !== libraryRoute || document.activeElement !== importMenuButton || document.querySelector('[role="dialog"]')) throw new Error('QA_LIBRARY_IMPORT_MENU_ESCAPE_FAILED');
+  await runRecordingCancellationUI();
   const route = window.location.hash;
   await openSettingsUI();
   const library = await window.desktop?.listLibrary();
@@ -123,7 +181,7 @@ export async function runNavigationUIQA(): Promise<NavigationUIReport> {
   const demo = document.querySelector<HTMLButtonElement>('[data-action="open-demo"]');
   if (!demo || demo.textContent?.trim() || !demo.getAttribute('aria-label') || demo.getBoundingClientRect().width > 45) throw new Error('QA_DEMO_NOT_COMPACT');
   if (Array.from(sidebar.querySelectorAll('button')).some((button) => button.textContent?.includes('新建工作区'))) throw new Error('QA_NEW_WORKSPACE_REMAINS');
-  navigate('workspace');
-  await waitUntil(() => document.querySelector<HTMLInputElement>('.project-name')?.value === sourceName && Boolean(document.querySelector('.preview-stage canvas')));
-  return { independentLibrary: true, centralizedSettings: true, workspacePreserved: true, footerRemoved: true, lightTheme: document.documentElement.dataset.theme === 'light', darkTheme: document.documentElement.dataset.theme === 'dark', modalSettings: true, compactDemo: true, workspaceCreationRemoved: true, configurableStorage: true, headerActionsRemoved: true, sidebarToolsAligned: true };
+  await navigatePageUI('workspace');
+  if (document.querySelector<HTMLInputElement>('.project-name')?.value !== sourceName || document.querySelector<HTMLElement>('.project-bar')?.dataset.projectId !== sourceId) throw new Error('QA_NAVIGATION_REOPENED_WRONG_PROJECT');
+  return { independentLibrary: true, centralizedSettings: true, workspacePreserved: true, footerRemoved: true, lightTheme: document.documentElement.dataset.theme === 'light', darkTheme: document.documentElement.dataset.theme === 'dark', modalSettings: true, compactDemo: true, workspaceCreationRemoved: true, configurableStorage: true, headerActionsRemoved: true, sidebarToolsAligned: true, projectCardNavigation: true, recordingCancelPreservesEditor: true, recordingCancelPreservesLibrary: true, sidebarImportActionsRemoved: true, libraryImportMenu: true };
 }

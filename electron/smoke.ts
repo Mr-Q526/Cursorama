@@ -3,10 +3,9 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
-import { app, desktopCapturer, type BrowserWindow } from 'electron';
+import { app, desktopCapturer, type BrowserWindow, type DesktopCapturerSource } from 'electron';
 import { runNativeFocusQA } from '../tests/native-focus-qa';
 import { exportVideo } from './export';
-import { desktopCatalog } from './catalog';
 import type { LibraryUIReport } from '../tests/library-ui-qa';
 import type { NavigationUIReport } from '../tests/navigation-ui-qa';
 import type { PreviewUIReport, RoundedFrameReport } from '../tests/preview-ui-qa';
@@ -30,6 +29,19 @@ interface CaptureReport {
 const decodeFile = promisify(execFile);
 const DECODE = { width: 3840, height: 2160, fps: 30, frames: 30, duration: '00:00:01.00' } as const;
 const SCREENSHOT = { attempts: 3, retryDelay: 200 } as const;
+const CAPTURE_WINDOW = { timeout: 10_000, retryDelay: 250 } as const;
+
+async function ownCaptureWindow(window: BrowserWindow): Promise<DesktopCapturerSource> {
+  const sourceId = window.getMediaSourceId();
+  const deadline = Date.now() + CAPTURE_WINDOW.timeout;
+  while (Date.now() < deadline) {
+    const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } });
+    const source = sources.find((item) => item.id === sourceId);
+    if (source) return source;
+    await new Promise<void>((resolve) => setTimeout(resolve, CAPTURE_WINDOW.retryDelay));
+  }
+  throw new Error('SMOKE_OWN_WINDOW_MISSING');
+}
 
 async function captureRestoredPage(window: BrowserWindow): Promise<Buffer> {
   for (let attempt = 0; attempt < SCREENSHOT.attempts; attempt++) {
@@ -53,6 +65,23 @@ async function reloadQA(window: BrowserWindow, output: string): Promise<void> {
   await window.webContents.executeJavaScript(await readFile(path.join(output, 'renderer-test.js'), 'utf8'));
 }
 
+async function runWorkflowQA(window: BrowserWindow, output: string): Promise<Record<string, unknown>> {
+  const source = await ownCaptureWindow(window);
+  const prepare = (): Promise<Record<string, unknown>> => window.webContents.executeJavaScript(`cursoramaQA.prepareRecordingUI(${JSON.stringify(source.id)})`, true) as Promise<Record<string, unknown>>;
+  const ready = await prepare();
+  await writeFile(path.join(output, 'recording-ready.png'), await captureRestoredPage(window));
+  const cancelled = await window.webContents.executeJavaScript('cursoramaQA.cancelCountdownUI()', true) as Record<string, unknown>;
+  await prepare();
+  const started = await window.webContents.executeJavaScript('cursoramaQA.startCountdownUI()', true) as Record<string, unknown>;
+  const library = await window.webContents.executeJavaScript('cursoramaQA.runLibraryUIQA()', true) as LibraryUIReport;
+  await window.webContents.executeJavaScript(`cursoramaQA.navigatePageUI('library')`, true);
+  await writeFile(path.join(output, 'library-page.png'), await captureRestoredPage(window));
+  await reloadQA(window, output);
+  await window.webContents.executeJavaScript(`cursoramaQA.restoreLibraryUIQA(${JSON.stringify(library.projectId)})`, true);
+  await writeFile(path.join(output, 'library-restored.png'), await captureRestoredPage(window));
+  return { recordingFlow: { ...ready, ...cancelled, ...started }, library: { ...library, restoredAfterReload: true } };
+}
+
 async function captureAudioLayouts(window: BrowserWindow, output: string): Promise<Record<string, unknown>[]> {
   const originalSize = window.getSize();
   const originalMinimum = window.getMinimumSize();
@@ -62,7 +91,7 @@ async function captureAudioLayouts(window: BrowserWindow, output: string): Promi
     for (const [theme, width, height, name] of [['dark', 1480, 960, 'soundtrack-panel'], ['light', 1480, 960, 'soundtrack-panel-light'], ['dark', 1080, 760, 'soundtrack-panel-compact']] as const) {
       window.setSize(width, height);
       await window.webContents.executeJavaScript(`cursoramaQA.setThemeUI(${JSON.stringify(theme)})`, true);
-      await window.webContents.executeJavaScript(`document.querySelector('[data-action="open-audio"]').click()`);
+      await window.webContents.executeJavaScript(`document.querySelector('.inspector-tabs [data-tab="audio"]').click()`);
       await window.webContents.executeJavaScript(`new Promise(resolve => setTimeout(resolve, 180))`);
       const report = await window.webContents.executeJavaScript(`(() => {
         const panel = document.querySelector('.soundtrack-panel');
@@ -128,8 +157,8 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
       console.info('导出清晰度专项验证完成。'); app.exit(0); return;
     }
     await window.webContents.executeJavaScript(`new Promise(resolve => setTimeout(resolve, 200))`);
-    const emptyWorkspace = await window.webContents.executeJavaScript(`Boolean(document.querySelector('.empty-workspace') && document.querySelector('.library-sidebar') && !document.querySelector('.preview-stage canvas'))`) as boolean;
-    if (!emptyWorkspace) throw new Error('SMOKE_DEFAULT_DEMO_VISIBLE');
+    const emptyWorkspace = await window.webContents.executeJavaScript(`Boolean(document.querySelector('.library-page') && document.querySelector('.library-sidebar') && !document.querySelector('.preview-stage canvas'))`) as boolean;
+    if (!emptyWorkspace) throw new Error('SMOKE_DEFAULT_LIBRARY_MISSING');
     await writeFile(path.join(output, 'workspace-empty.png'), (await window.webContents.capturePage()).toPNG());
     await window.webContents.executeJavaScript(`document.querySelector('[data-action="open-demo"]').click()`);
     await window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
@@ -140,6 +169,13 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     await window.webContents.executeJavaScript(await readFile(path.join(output, 'renderer-test.js'), 'utf8'));
     const navigation = await window.webContents.executeJavaScript(`cursoramaQA.runNavigationUIQA()`, true) as NavigationUIReport;
     const frameStepping = await window.webContents.executeJavaScript(`cursoramaQA.runFrameStepUIQA()`, true) as Record<string, boolean>;
+    if (process.argv.includes('--workflow-only')) {
+      const workflow = await runWorkflowQA(window, output);
+      if (errors.length) throw new Error(errors.join('\n'));
+      await writeFile(path.join(output, 'workflow-report.json'), JSON.stringify({ passed: true, navigation, frameStepping, ...workflow, errors }, null, 2));
+      console.info('交互流程验证通过：项目库、导入菜单、录制准备与取消、录制完成、成片预览、历史导航和重启恢复。');
+      app.exit(0); return;
+    }
     const { payload: backgroundPayload, image: backgroundImage, ...customBackground } = await window.webContents.executeJavaScript(`cursoramaQA.runCustomBackgroundQA()`, true) as CustomBackgroundQAReport;
     const backgroundSource = path.join(output, 'custom-background.cursorama');
     const movedDirectory = path.join(output, 'moved-background');
@@ -186,9 +222,7 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     const { image: glassImage, ...glassFrame } = await window.webContents.executeJavaScript(`cursoramaQA.runGlassFrameQA()`, true) as GlassFrameReport;
     await writeFile(path.join(output, 'glass-frame.png'), Buffer.from(glassImage.split(',')[1], 'base64'));
     await window.webContents.executeJavaScript(`document.exitFullscreen()`);
-    const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } });
-    const ownWindow = sources.find((source) => source.name === desktopCatalog.appName);
-    if (!ownWindow) throw new Error('SMOKE_OWN_WINDOW_MISSING');
+    const ownWindow = await ownCaptureWindow(window);
     app.setAccessibilitySupportEnabled(true);
     const nativeFocus = await runNativeFocusQA(window, root, ownWindow.id);
     await setSource(ownWindow.id);
@@ -219,10 +253,10 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     await writeFile(path.join(output, 'capture.webm'), raw);
     await exportVideo(window, { bytes: raw.buffer, mimeType: result.mimeType, format: 'mp4', name: '录制验证', quality: 'standard', duration: result.duration, fps: 30 }, path.join(output, 'capture.mp4'));
     await window.webContents.executeJavaScript(await readFile(path.join(output, 'renderer-test.js'), 'utf8'));
-    const ready = await window.webContents.executeJavaScript(`cursoramaQA.prepareRecordingUI()`, true) as Record<string, unknown>;
+    const ready = await window.webContents.executeJavaScript(`cursoramaQA.prepareRecordingUI(${JSON.stringify(ownWindow.id)})`, true) as Record<string, unknown>;
     await writeFile(path.join(output, 'recording-ready.png'), (await window.webContents.capturePage()).toPNG());
     const cancelledCountdown = await window.webContents.executeJavaScript(`cursoramaQA.cancelCountdownUI()`, true) as Record<string, unknown>;
-    await window.webContents.executeJavaScript(`cursoramaQA.prepareRecordingUI()`, true);
+    await window.webContents.executeJavaScript(`cursoramaQA.prepareRecordingUI(${JSON.stringify(ownWindow.id)})`, true);
     const startedCountdown = await window.webContents.executeJavaScript(`cursoramaQA.startCountdownUI()`, true) as Record<string, unknown>;
     const libraryReport = await window.webContents.executeJavaScript(`cursoramaQA.runLibraryUIQA()`, true) as LibraryUIReport;
     await window.webContents.executeJavaScript(`cursoramaQA.navigatePageUI('library')`, true);
@@ -260,6 +294,7 @@ export async function runSmokeTest(window: BrowserWindow, root: string, setSourc
     console.error('SMOKE_TEST_FAILED', error);
     await writeFile(path.join(output, 'smoke-failure.png'), (await window.webContents.capturePage()).toPNG());
     await writeFile(path.join(output, 'smoke-report.json'), JSON.stringify({ passed: false, error: String(error), errors }, null, 2));
+    if (process.argv.includes('--workflow-only')) await writeFile(path.join(output, 'workflow-report.json'), JSON.stringify({ passed: false, error: String(error), errors }, null, 2));
     if (process.argv.includes('--editing-only')) await writeFile(path.join(output, 'editing-report.json'), JSON.stringify({ passed: false, error: String(error), errors }, null, 2));
     app.exit(1);
   }

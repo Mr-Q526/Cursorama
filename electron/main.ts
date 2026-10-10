@@ -213,10 +213,10 @@ app.whenReady().then(async () => {
       const wait = () => new Promise(resolve => setTimeout(resolve, 250));
       await wait();
       const sidebar = document.querySelector('.library-sidebar');
-      if (!document.querySelector('.empty-workspace') || !sidebar || sidebar.querySelector('.library-tabs, .library-item, .library-location') || document.querySelector('.preview-stage canvas, .app-footer, .theme-toggle') || !window.desktop || document.title !== 'Cursorama') return false;
+      if (!document.querySelector('.library-page') || !sidebar || sidebar.querySelector('.library-tabs, .library-item, .library-location, [data-page="workspace"], [data-action="open-audio"]') || document.querySelector('.preview-stage canvas, .app-footer, .theme-toggle') || !window.desktop || document.title !== 'Cursorama') return false;
       if (document.querySelectorAll('.window-controls button').length !== 3 || getComputedStyle(document.querySelector('.app-header')).getPropertyValue('-webkit-app-region') !== 'drag') return false;
       sidebar.querySelector('[data-action="open-settings"]').click(); await wait();
-      if (document.querySelectorAll('.settings-dialog input[name="app-theme"]').length !== 2 || document.querySelectorAll('.settings-navigation [role="tab"]').length !== 3 || !document.querySelector('#settings-panel-appearance') || !document.querySelector('.empty-workspace')) return false;
+      if (document.querySelectorAll('.settings-dialog input[name="app-theme"]').length !== 2 || document.querySelectorAll('.settings-navigation [role="tab"]').length !== 3 || !document.querySelector('#settings-panel-appearance') || !document.querySelector('.library-page')) return false;
       if (document.querySelector('.window-controls').closest('[inert]') || !document.querySelector('.header-actions').inert) return false;
       document.querySelector('[data-settings-page="storage"]').click(); await wait();
       if (!document.querySelector('.settings-dialog #storage-projects') || !document.querySelector('.settings-dialog #storage-exports')) return false;
@@ -224,10 +224,8 @@ app.whenReady().then(async () => {
       const updateState = await window.desktop.getUpdateState();
       if (!document.querySelector('.update-settings [data-action="check-updates"]') || updateState.status !== 'unsupported' || !document.querySelector('.update-settings [data-update-status="unsupported"]')) return false;
       document.querySelector('.settings-dialog .modal-heading button').click(); await wait();
-      sidebar.querySelector('[data-page="library"]').click(); await wait();
-      if (!document.querySelector('.library-page .library-tabs') || sidebar.querySelector('.library-tabs')) return false;
-      sidebar.querySelector('[data-page="workspace"]').click(); await wait();
-      return Boolean(document.querySelector('.empty-workspace'));
+      if (!document.querySelector('.library-page .library-tabs') || sidebar.querySelector('.library-tabs') || sidebar.querySelector('[data-page="workspace"], [data-action="open-audio"]')) return false;
+      return Boolean(document.querySelector('.library-page'));
     })()`) as boolean;
     console.info(ready ? 'Cursorama 打包程序启动检查通过。' : 'Cursorama 打包程序启动检查失败。');
     app.exit(ready ? 0 : 1);

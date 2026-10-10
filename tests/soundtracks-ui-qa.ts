@@ -112,7 +112,7 @@ function musicWaveform(id: string): { element: HTMLElement; wave: string; gain: 
 export async function runSoundtrackUIQA(): Promise<SoundtrackUIReport> {
   const desktop = window.desktop;
   if (!desktop) throw new Error('QA_SOUNDTRACK_DESKTOP_REQUIRED');
-  const launcher = document.querySelector<HTMLButtonElement>('[data-action="open-audio"]');
+  const launcher = document.querySelector<HTMLButtonElement>('.inspector-tabs [data-tab="audio"]');
   if (!launcher || launcher.disabled) throw new Error('QA_SOUNDTRACK_ENTRY_MISSING');
   launcher.click();
   await until('open-panel', () => document.querySelector('.soundtrack-panel') ? true : undefined);
@@ -183,7 +183,7 @@ export async function runSoundtrackUIQA(): Promise<SoundtrackUIReport> {
     const restoredWaveform = musicWaveform(saved.music.id);
     return restoredWaveform?.wave === waveform.wave && restoredWaveform.gain === waveform.gain ? true : undefined;
   });
-  const reopen = document.querySelector<HTMLButtonElement>('[data-action="open-audio"]');
+  const reopen = document.querySelector<HTMLButtonElement>('.inspector-tabs [data-tab="audio"]');
   if (!reopen || reopen.disabled) throw new Error('QA_SOUNDTRACK_REOPEN_ENTRY');
   reopen.click();
   await until('reopened-panel', () => document.querySelector('.soundtrack-panel') ? true : undefined);

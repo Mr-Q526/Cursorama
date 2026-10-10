@@ -40,7 +40,7 @@ async function run(): Promise<RecordingOverlaysReport> {
   const overlays = new RecordingOverlays({ mainWindow: main, preload: path.join(root, 'dist-electron/preload.cjs'), keepMainVisible: false });
   try {
     await main.loadFile(path.join(root, 'dist/index.html'));
-    await waitFor(() => main.webContents.executeJavaScript(`Boolean(document.querySelector('.empty-workspace'))`));
+    await waitFor(() => main.webContents.executeJavaScript(`Boolean(document.querySelector('.library-page'))`));
     main.showInactive();
     const script = Array.from({ length: 24 }, (_unused, index) => `第 ${index + 1} 段：向观众介绍操作步骤，说明重点，再开始演示。`).join('\n\n');
     await main.webContents.executeJavaScript(`window.desktop.configurePrompter(${JSON.stringify(script)}, true)`);
