@@ -28,7 +28,7 @@ public static class CursoramaPointer
     private const uint CaretObject = 0xFFFFFFF8;
     private const int InvisibleOrOffscreen = 0x18000;
     private const int SelfChild = 0;
-    private const uint RemoveMessage = 0x0001;
+    private const uint QuitMessage = 0x0012;
     private const uint RootWindow = 2;
     private const int ActivityIntervalMilliseconds = 140;
     private const int FocusQueryIntervalMilliseconds = 240;
@@ -77,6 +77,72 @@ public static class CursoramaPointer
     private sealed class ClickInfo { public Point Position; public string Button; }
     private delegate IntPtr HookCallback(int code, IntPtr parameter, IntPtr data);
 
+    private sealed class InputHooks : IDisposable
+    {
+        private readonly ManualResetEvent ready = new ManualResetEvent(false);
+        private readonly Thread thread;
+        private Exception failure;
+        private uint threadId;
+
+        public InputHooks() { thread = new Thread(Pump) { IsBackground = true }; }
+
+        public void Start()
+        {
+            thread.Start();
+            ready.WaitOne();
+            ThrowIfFailed();
+        }
+
+        public void ThrowIfFailed()
+        {
+            var error = Interlocked.CompareExchange(ref failure, null, null);
+            if (error != null) throw new InvalidOperationException("INPUT_HOOK_FAILED", error);
+        }
+
+        private void Pump()
+        {
+            IntPtr keyboard = IntPtr.Zero;
+            IntPtr mouse = IntPtr.Zero;
+            try
+            {
+                threadId = GetCurrentThreadId();
+                Message message;
+                PeekMessage(out message, IntPtr.Zero, 0, 0, 0);
+                keyboard = SetWindowsHookEx(KeyboardHook, KeyboardCallback, GetModuleHandle(null), 0);
+                if (keyboard == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+                mouse = SetWindowsHookEx(MouseHook, MouseCallback, GetModuleHandle(null), 0);
+                if (mouse == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+                ready.Set();
+                // 全局低级钩子必须及时放行系统输入；此线程不采样、不休眠，也不写输出管道。
+                int result;
+                while ((result = GetMessage(out message, IntPtr.Zero, 0, 0)) > 0)
+                {
+                    TranslateMessage(ref message);
+                    DispatchMessage(ref message);
+                }
+                if (result < 0) throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            catch (Exception error) { Interlocked.Exchange(ref failure, error); }
+            finally
+            {
+                if (keyboard != IntPtr.Zero) UnhookWindowsHookEx(keyboard);
+                if (mouse != IntPtr.Zero) UnhookWindowsHookEx(mouse);
+                ready.Set();
+            }
+        }
+
+        public void Dispose()
+        {
+            if (thread.IsAlive)
+            {
+                if (!PostThreadMessage(threadId, QuitMessage, UIntPtr.Zero, IntPtr.Zero))
+                    Trace.TraceWarning("INPUT_HOOK_STOP_UNAVAILABLE: {0}", Marshal.GetLastWin32Error());
+                thread.Join();
+            }
+            ready.Dispose();
+        }
+    }
+
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out Point point);
     [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out Rect rect);
@@ -91,9 +157,12 @@ public static class CursoramaPointer
     [DllImport("user32.dll")] private static extern bool UnhookWindowsHookEx(IntPtr hook);
     [DllImport("user32.dll")] private static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr parameter, IntPtr data);
     [DllImport("user32.dll")] private static extern bool PeekMessage(out Message message, IntPtr window, uint minimum, uint maximum, uint remove);
+    [DllImport("user32.dll", SetLastError = true)] private static extern int GetMessage(out Message message, IntPtr window, uint minimum, uint maximum);
+    [DllImport("user32.dll", SetLastError = true)] private static extern bool PostThreadMessage(uint thread, uint message, UIntPtr parameter, IntPtr data);
     [DllImport("user32.dll")] private static extern bool TranslateMessage(ref Message message);
     [DllImport("user32.dll")] private static extern IntPtr DispatchMessage(ref Message message);
     [DllImport("kernel32.dll", CharSet = CharSet.Auto)] private static extern IntPtr GetModuleHandle(string name);
+    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
     [DllImport("oleacc.dll")] private static extern int AccessibleObjectFromWindow(IntPtr window, uint objectId, ref Guid identifier, [MarshalAs(UnmanagedType.Interface)] out IAccessible accessible);
     [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out Rect rect, int size);
 
@@ -267,50 +336,44 @@ public static class CursoramaPointer
     public static void Run(long handle)
     {
         SetProcessDpiAwarenessContext(new IntPtr(-4));
-        IntPtr keyboardHook = SetWindowsHookEx(KeyboardHook, KeyboardCallback, GetModuleHandle(null), 0);
-        IntPtr mouseHook = SetWindowsHookEx(MouseHook, MouseCallback, GetModuleHandle(null), 0);
-        if (keyboardHook == IntPtr.Zero || mouseHook == IntPtr.Zero)
+        using (var hooks = new InputHooks())
         {
-            int error = Marshal.GetLastWin32Error();
-            if (keyboardHook != IntPtr.Zero) UnhookWindowsHookEx(keyboardHook);
-            if (mouseHook != IntPtr.Zero) UnhookWindowsHookEx(mouseHook);
-            throw new Win32Exception(error);
-        }
-        running = true;
-        var focusThread = new Thread(() => QueryFocus(handle)) { IsBackground = true };
-        focusThread.SetApartmentState(ApartmentState.MTA); focusThread.Start();
-        bool previousLeft = (GetAsyncKeyState(LeftButton) & ButtonDownMask) != 0;
-        Point previousPoint = new Point { X = int.MinValue, Y = int.MinValue };
-        long previousTyping = -ActivityIntervalMilliseconds;
-        long previousDrag = -ActivityIntervalMilliseconds;
-        Console.WriteLine("READY");
-        try
-        {
-            while (true)
+            hooks.Start();
+            running = true;
+            try
             {
-                Message message;
-                while (PeekMessage(out message, IntPtr.Zero, 0, 0, RemoveMessage)) { TranslateMessage(ref message); DispatchMessage(ref message); }
-                Point point;
-                if (GetCursorPos(out point))
+                var focusThread = new Thread(() => QueryFocus(handle)) { IsBackground = true };
+                focusThread.SetApartmentState(ApartmentState.MTA); focusThread.Start();
+                bool previousLeft = (GetAsyncKeyState(LeftButton) & ButtonDownMask) != 0;
+                Point previousPoint = new Point { X = int.MinValue, Y = int.MinValue };
+                long previousTyping = -ActivityIntervalMilliseconds;
+                long previousDrag = -ActivityIntervalMilliseconds;
+                Console.WriteLine("READY");
+                while (true)
                 {
-                    long now = Clock.ElapsedMilliseconds;
-                    bool left = (GetAsyncKeyState(LeftButton) & ButtonDownMask) != 0;
-                    bool moved = point.X != previousPoint.X || point.Y != previousPoint.Y;
-                    if (moved) Emit(point, handle, "move", null);
-                    ClickInfo click;
-                    while (Clicks.TryDequeue(out click)) Emit(click.Position, handle, "click", click.Button);
-                    if (left && previousLeft && moved && now - previousDrag >= ActivityIntervalMilliseconds) { Emit(point, handle, "drag", "left"); previousDrag = now; }
-                    if (Interlocked.Exchange(ref scrollActivity, 0) != 0) Emit(point, handle, "scroll", null);
-                    if (now - previousTyping >= ActivityIntervalMilliseconds && Interlocked.Exchange(ref keyboardActivity, 0) != 0 && RecordedForeground(handle, GetForegroundWindow()))
+                    hooks.ThrowIfFailed();
+                    Point point;
+                    if (GetCursorPos(out point))
                     {
-                        Emit(point, handle, "typing", null, ActiveFocus(handle)); previousTyping = now;
+                        long now = Clock.ElapsedMilliseconds;
+                        bool left = (GetAsyncKeyState(LeftButton) & ButtonDownMask) != 0;
+                        bool moved = point.X != previousPoint.X || point.Y != previousPoint.Y;
+                        if (moved) Emit(point, handle, "move", null);
+                        ClickInfo click;
+                        while (Clicks.TryDequeue(out click)) Emit(click.Position, handle, "click", click.Button);
+                        if (left && previousLeft && moved && now - previousDrag >= ActivityIntervalMilliseconds) { Emit(point, handle, "drag", "left"); previousDrag = now; }
+                        if (Interlocked.Exchange(ref scrollActivity, 0) != 0) Emit(point, handle, "scroll", null);
+                        if (now - previousTyping >= ActivityIntervalMilliseconds && Interlocked.Exchange(ref keyboardActivity, 0) != 0 && RecordedForeground(handle, GetForegroundWindow()))
+                        {
+                            Emit(point, handle, "typing", null, ActiveFocus(handle)); previousTyping = now;
+                        }
+                        previousPoint = point; previousLeft = left;
                     }
-                    previousPoint = point; previousLeft = left;
+                    Thread.Sleep(PollIntervalMilliseconds);
                 }
-                Thread.Sleep(PollIntervalMilliseconds);
             }
+            finally { running = false; }
         }
-        finally { running = false; UnhookWindowsHookEx(keyboardHook); UnhookWindowsHookEx(mouseHook); }
     }
 }
 '@
