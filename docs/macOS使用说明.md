@@ -1,6 +1,6 @@
 # Cursorama macOS 试用版
 
-此版本适用于 Apple Silicon（arm64）Mac，使用临时签名，未经过 Apple 开发者签名或公证。打开 DMG 后，将 Cursorama 拖入 Applications，再从应用程序目录启动。如被系统阻止，请在“系统设置 → 隐私与安全性”中允许打开。
+此版本适用于 macOS 13 或更新版本的 Apple Silicon（arm64）Mac，使用临时签名，未经过 Apple 开发者签名或公证。打开 DMG 后，将 Cursorama 拖入 Applications，再从应用程序目录启动。如被系统阻止，请在“系统设置 → 隐私与安全性”中允许打开。
 
 首次录制需在“系统设置 → 隐私与安全性 → 屏幕与系统音频录制”中允许 Cursorama，按系统提示重新启动应用。麦克风权限在启用讲解录音时请求。
 
