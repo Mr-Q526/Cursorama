@@ -4,7 +4,7 @@ Cursorama 自有源码采用 MIT 许可证。下列第三方组件的许可独�
 
 | 组件 | 用途 | 许可与说明 |
 | --- | --- | --- |
-| Electron | Windows 桌面运行时 | MIT；发行目录同时包含 Electron 和 Chromium 的许可文件 |
+| Electron | Windows / macOS 桌面运行时 | MIT；发行目录同时包含 Electron 和 Chromium 的许可文件 |
 | React、React DOM | 编辑器界面 | MIT |
 | electron-updater | 检查、下载和安装桌面更新 | MIT |
 | @fix-webm-duration/fix、@fix-webm-duration/parser | 为录制视频补充有效时长元数据 | MIT；副本位于 `resources/third-party/WebM-Duration-LICENSE.txt` |
@@ -26,3 +26,7 @@ FFmpeg 作为独立子进程运行。其许可证副本放在发行目录的 `re
 - [Phosphor Icons 许可证](https://github.com/phosphor-icons/react/blob/master/LICENSE)
 
 此文件记录所使用组件及许可证信息。
+
+## macOS 构建
+
+macOS Apple Silicon 安装包使用从源码构建的 FFmpeg 8.0.1（GPL-3.0-or-later），静态链接 x264、libvpx 和 Opus，未启用 nonfree。实际许可和构建信息位于应用包 `Contents/Resources/third-party/`。对应原始源码归档与构建脚本包含在同一 Release 的 `Cursorama-版本号-mac-source.tar.gz` 中；构建步骤见 `scripts/build-mac-ffmpeg.mjs` 和 `docs/macOS使用说明.md`。

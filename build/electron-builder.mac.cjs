@@ -17,6 +17,7 @@ module.exports = {
   mac: {
     target: [{ target: 'dmg', arch: ['arm64'] }],
     category: 'public.app-category.video',
+    minimumSystemVersion: '12.3',
     icon: 'assets/icon.png',
     identity: '-',
     hardenedRuntime: false,

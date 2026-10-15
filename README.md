@@ -5,11 +5,12 @@
   <p>录下屏幕操作，让镜头自动跟上你的思路。</p>
   <p>
     <img src="https://img.shields.io/badge/Windows-桌面录屏-181818?style=flat-square" alt="Windows 桌面录屏">
-    <img src="https://img.shields.io/badge/版本-0.3.2-181818?style=flat-square" alt="版本 0.3.2">
+    <img src="https://img.shields.io/badge/版本-0.3.3-181818?style=flat-square" alt="版本 0.3.3">
     <a href="LICENSE"><img src="https://img.shields.io/badge/许可证-MIT-181818?style=flat-square" alt="MIT 许可证"></a>
   </p>
   <p>
     <a href="https://github.com/Mr-Q526/Cursorama/releases/latest">下载 Windows 版</a> ·
+    <a href="https://github.com/Mr-Q526/Cursorama/releases/tag/v0.3.3">下载 Mac 版</a> ·
     <a href="#效果预览">效果预览</a> ·
     <a href="#快速开始">快速开始</a> ·
     <a href="docs/使用指南.md">使用指南</a> ·
