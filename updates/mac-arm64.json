@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "version": "0.3.4",
+  "arch": "arm64",
+  "notes": "# Mac 在线更新\n\n- Mac 正式版支持自动检查、在线下载和 SHA-256 校验更新。\n- 使用独立的 Mac 更新清单，避免 Windows 最新版本标记和 GitHub API 限流影响。\n- 下载完成后可直接打开安装包，退出 Cursorama 并拖入 Applications 替换安装，工程与设置保留。\n- 修复安装包打开失败后无法重试的状态，下载异常会清理半成品。\n\n当前 Mac 包使用临时签名，尚不支持静默替换安装。0.3.3 及更早的 Mac 版本需先手动安装此版，之后可在设置中在线检查与下载更新。\n\n适用于 macOS 13 或更新版本的 Apple Silicon Mac。\n",
+  "asset": {
+    "name": "Cursorama-0.3.4-mac-arm64.dmg",
+    "url": "https://github.com/Mr-Q526/Cursorama/releases/download/v0.3.4/Cursorama-0.3.4-mac-arm64.dmg",
+    "size": 141355779,
+    "digest": "sha256:731e90edcd26d4d2adf89467d2794b31139a850c1c5897b7471f11047ed8d6d0"
+  }
+}

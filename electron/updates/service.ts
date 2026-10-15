@@ -6,9 +6,10 @@ import { atomicReplace } from '../../storage/files';
 
 export interface UpdateDetails { version: string; notes: string; }
 export interface UpdateDriver {
+  readonly installation?: 'installer';
   check(): Promise<UpdateDetails | null>;
   download(progress: (percent: number) => void): Promise<void>;
-  install(): void;
+  install(): void | Promise<void>;
   dispose(): void;
 }
 export interface UpdateServiceOptions {
@@ -28,7 +29,7 @@ export class UpdateService {
   private disposed = false;
   private preferenceQueue: Promise<unknown> = Promise.resolve();
 
-  constructor(private readonly options: UpdateServiceOptions) { this.state = initialUpdateState(options.version, options.driver !== null); }
+  constructor(private readonly options: UpdateServiceOptions) { this.state = { ...initialUpdateState(options.version, options.driver !== null), installation: options.driver?.installation }; }
   get current(): UpdateState { return { ...this.state }; }
 
   private change(next: Partial<UpdateState>): UpdateState {
@@ -119,7 +120,12 @@ export class UpdateService {
     if (!this.options.driver || this.disposed || !this.state.downloaded || this.state.status === 'installing') return this.current;
     if (!this.options.canInstall()) return this.change({ error: 'busy' });
     this.change({ status: 'installing', error: null });
-    try { this.options.driver.install(); }
+    try {
+      const result = this.options.driver.install();
+      if (result) void result.then(() => {
+        if (!this.disposed && this.state.installation === 'installer') this.change({ status: 'downloaded' });
+      }).catch((error: unknown) => { console.error('UPDATE_INSTALL_FAILED', error); if (!this.disposed) this.reportInstallFailure(); });
+    }
     catch (error) { console.error('UPDATE_INSTALL_FAILED', error); this.reportInstallFailure(); }
     return this.current;
   }

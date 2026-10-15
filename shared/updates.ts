@@ -5,6 +5,7 @@ export type UpdateError = 'check' | 'download' | 'install' | 'settings' | 'busy'
 export interface UpdateState {
   revision: number;
   supported: boolean;
+  installation?: 'installer';
   status: UpdateStatus;
   currentVersion: string;
   latestVersion: string | null;
@@ -19,7 +20,7 @@ export interface UpdateState {
 export const APP_VERSION = metadata.version;
 export const UPDATE_CONFIG = {
   owner: 'Mr-Q526', repository: 'Cursorama',
-  releasePage: 'https://github.com/Mr-Q526/Cursorama/releases/latest',
+  releasePage: 'https://github.com/Mr-Q526/Cursorama/releases',
   startupDelay: 10_000, checkInterval: 4 * 60 * 60 * 1000,
   preferencesVersion: 1, preferencesFile: 'updates.json',
   minimumProgress: 0, maximumProgress: 100, notesLimit: 6000,

@@ -10,7 +10,7 @@ import { exportVideo, openProject } from './export';
 import { LocalLibrary } from '../storage/library';
 import { legacyLibraryRoots } from '../storage/locations';
 import { PointerTracker } from './pointer';
-import { createUpdateDriver, UpdateService } from './updates';
+import { createUpdateDriver, createMacUpdateDriver, UpdateService } from './updates';
 import { registerWindowControls } from './window';
 import { RecordingOverlays } from './recording-overlays';
 import { ffmpegPath } from './runtime';
@@ -212,7 +212,10 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   updates = new UpdateService({
     version: app.getVersion(), preferencesFile: path.join(isSmoke || isStartupCheck ? app.getPath('userData') : INSTALL_ROOT, UPDATE_SETTINGS_DIRECTORY, UPDATE_CONFIG.preferencesFile),
-    driver: app.isPackaged && process.platform === 'win32' && !isSmoke && !isStartupCheck ? createUpdateDriver(INSTALL_ROOT, () => updates?.reportInstallFailure()) : null,
+    driver: app.isPackaged && !isSmoke && !isStartupCheck
+      ? process.platform === 'win32' ? createUpdateDriver(INSTALL_ROOT, () => updates?.reportInstallFailure())
+        : process.platform === 'darwin' ? createMacUpdateDriver({ version: app.getVersion(), arch: process.arch, cacheDirectory: path.join(app.getPath('userData'), 'updates'), openInstaller: (file) => shell.openPath(file) }) : null
+      : null,
     canInstall: () => !recording && activeOperations === 0,
     emit: (state) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(IPC.updateState, state); },
   });

@@ -18,13 +18,20 @@ const STATUS_ICONS = {
 export function UpdateSettings({ updates, onInstall, installing }: UpdateSettingsProps) {
   const copy = t.updates;
   const state = updates.state;
+  const installer = state.installation === 'installer';
   const status = installing ? 'installing' : state.status;
   const StatusIcon = STATUS_ICONS[status];
   const downloading = state.status === 'downloading';
   const busy = state.status === 'checking' || downloading || state.status === 'installing' || installing;
   const progress = Number.isFinite(state.progress) ? Math.max(UPDATE_CONFIG.minimumProgress, Math.min(UPDATE_CONFIG.maximumProgress, state.progress)) : UPDATE_CONFIG.minimumProgress;
   const checkedAt = state.checkedAt && Number.isFinite(Date.parse(state.checkedAt)) ? state.checkedAt : null;
-  const message = status === 'downloaded' ? copy.installHint : status === 'current' && !state.automatic ? copy.currentManual : copy.status[status];
+  const installLabel = installer ? copy.macInstall : copy.install;
+  const installingLabel = installer ? copy.macInstalling : copy.installing;
+  let message: string = copy.status[status];
+  if (status === 'current' && !state.automatic) message = copy.currentManual;
+  if (status === 'downloaded') message = installer ? copy.macInstallHint : copy.installHint;
+  if (installer && status === 'available') message = copy.macAvailable;
+  if (installer && status === 'installing') message = copy.macInstallingHint;
   const failure = state.error ? copy.error[state.error] : updates.requestFailed ? copy.requestFailed : null;
   const checkButton = <button type="button" className="soft-button small" data-action="check-updates" disabled={!state.supported || busy || state.downloaded} onClick={() => void updates.check()}><ArrowsClockwiseIcon size={14} className={status === 'checking' ? 'spin' : ''} />{status === 'checking' ? copy.checking : copy.check}</button>;
   return <section className="settings-section update-settings" aria-labelledby="updates-heading">
@@ -36,13 +43,13 @@ export function UpdateSettings({ updates, onInstall, installing }: UpdateSetting
     <div className="update-card">
       <div className="update-status" role="status" aria-live="polite" data-update-status={status}>
         <div className="update-status-heading"><StatusIcon size={19} className={status === 'checking' || status === 'installing' ? 'spin' : ''} aria-hidden="true" /><h3>{copy.heading[status]}</h3>{state.latestVersion && <span className="update-version-badge" aria-label={copy.versionChange(state.currentVersion, state.latestVersion)}>{state.latestVersion}</span>}</div>
-        {!failure && status !== 'available' && <p className="update-description">{message}</p>}
+        {!failure && (status !== 'available' || installer) && <p className="update-description">{message}</p>}
       </div>
       {failure && <p className="update-error" role="alert"><WarningCircleIcon size={16} aria-hidden="true" />{failure}</p>}
       {downloading && <div className="update-progress"><div><span>{copy.downloading}</span><strong>{copy.percent(progress)}</strong></div><progress max={UPDATE_CONFIG.maximumProgress} value={progress} aria-label={copy.download} /></div>}
       {!downloading && state.latestVersion && <div className="update-actions">
         {state.downloaded
-          ? <button type="button" className="primary-button" data-action="install-update" disabled={busy} onClick={() => void onInstall()}><ArrowsClockwiseIcon size={16} className={installing ? 'spin' : ''} />{installing ? copy.installing : copy.install}</button>
+          ? <button type="button" className="primary-button" data-action="install-update" disabled={busy} onClick={() => void onInstall()}><ArrowsClockwiseIcon size={16} className={installing ? 'spin' : ''} />{installing ? installingLabel : installLabel}</button>
           : <button type="button" className="primary-button" data-action="download-update" disabled={busy || !state.supported} onClick={() => void updates.download()}><DownloadSimpleIcon size={16} />{state.error === 'download' ? copy.retryDownload : copy.download}</button>}
       </div>}
     </div>
