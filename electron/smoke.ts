@@ -131,6 +131,11 @@ async function verifyPausedRecording(root: string, duration: number): Promise<{ 
 }
 
 export async function runSmokeTest(window: BrowserWindow, root: string, setSource: (sourceId: string) => Promise<void>): Promise<void> {
+  if (process.platform === 'darwin') {
+    const { runMacSmokeTest } = await import('./smoke-mac');
+    await runMacSmokeTest(window, root, setSource);
+    return;
+  }
   const output = path.join(root, '.qa');
   await mkdir(output, { recursive: true });
   const errors: string[] = [];

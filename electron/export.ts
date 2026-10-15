@@ -1,13 +1,13 @@
 import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-import { app, dialog, type BrowserWindow } from 'electron';
+import { dialog, type BrowserWindow } from 'electron';
 import { IPC, PROJECT_EXTENSION, readProjectBytes } from '../shared';
 import type { ExportRequest, ExportResult, StoredProject } from '../shared';
 import { encodeVideo } from '../storage/encoder';
 import { desktopCatalog } from './catalog';
+import { ffmpegPath } from './runtime';
 
 export async function exportVideo(window: BrowserWindow, request: ExportRequest, target: string): Promise<ExportResult> {
-  const binary = app.isPackaged ? path.join(process.resourcesPath, 'ffmpeg.exe') : path.join(app.getAppPath(), 'node_modules/ffmpeg-static/ffmpeg.exe');
+  const binary = ffmpegPath();
   await encodeVideo(request, binary, target, (progress) => {
     if (!window.isDestroyed()) window.webContents.send(IPC.encodeProgress, progress);
   });

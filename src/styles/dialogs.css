@@ -8,10 +8,14 @@
 .modal-heading .icon-button { width: 28px; height: 28px; background: var(--tone-95); margin-top: 2px; }
 .record-sources-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .record-sources-toolbar .segmented { width: 260px; }
-.source-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-height: 350px; overflow: auto; min-height: 145px; margin-bottom: 23px; padding: 2px; }
+.source-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; grid-auto-rows: 149px; max-height: 350px; overflow: auto; min-height: 145px; margin-bottom: 23px; padding: 2px; }
 .source-option { position: relative; border: 1px solid var(--tone-90); border-radius: 9px; padding: 5px 5px 9px; background: var(--tone-95); text-align: left; min-width: 0; }
 .source-option.selected { border-color: var(--tone-60); background: var(--tone-95); box-shadow: 0 0 0 2px color-mix(in srgb, var(--tone-80) 33%, transparent); }
-.source-option img { width: 100%; height: 104px; object-fit: cover; border-radius: 5px; display: block; background: var(--tone-90); }
+.source-thumbnail { width: 100%; height: 104px; border-radius: 5px; background: var(--tone-90); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.source-thumbnail img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.source-thumbnail-fallback { flex-direction: column; gap: 8px; color: var(--tone-55); }
+.source-thumbnail-fallback img { width: 42px; height: 42px; object-fit: contain; }
+.source-thumbnail-fallback span { font-size: 10px; }
 .source-option > span:not(.selection-dot) { display: block; padding: 9px 4px 0; font-size: 10px; color: var(--tone-55); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .source-option .selection-dot { bottom: 12px; right: 7px; }
 .empty-state { grid-column: 1/-1; text-align: center; font-size: 11px; color: var(--tone-60); align-self: center; line-height: 2; }

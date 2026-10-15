@@ -13,13 +13,15 @@ import { PointerTracker } from './pointer';
 import { createUpdateDriver, UpdateService } from './updates';
 import { registerWindowControls } from './window';
 import { RecordingOverlays } from './recording-overlays';
+import { ffmpegPath } from './runtime';
+import { macWindowSources } from './mac-capture';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const STOP_SHORTCUT = 'CommandOrControl+Shift+F9';
 const EDITOR_PERMISSIONS = new Set(['media', 'display-capture', 'fullscreen']);
 const isSmoke = process.argv.includes('--smoke-test');
 const isStartupCheck = process.argv.includes('--startup-check');
-const INSTALL_ROOT = app.isPackaged ? path.dirname(process.execPath) : ROOT;
+const INSTALL_ROOT = app.isPackaged ? process.platform === 'darwin' ? path.join(app.getPath('appData'), 'Cursorama') : path.dirname(process.execPath) : ROOT;
 const library = new LocalLibrary(isSmoke ? path.join(ROOT, '.qa', 'library') : isStartupCheck ? path.join(tmpdir(), 'cursorama-startup-check-library') : process.env.CURSORAMA_LIBRARY_DIR ?? INSTALL_ROOT, { legacyRoots: isSmoke || isStartupCheck ? [] : legacyLibraryRoots() });
 const tracker = new PointerTracker();
 let mainWindow: BrowserWindow | null = null;
@@ -33,12 +35,35 @@ const UPDATE_SETTINGS_DIRECTORY = '.cursorama';
 const trustedFiles = new Set<string>();
 const sourceDisplays = new Map<string, string>();
 
+async function captureSources(thumbnails: boolean): Promise<Electron.DesktopCapturerSource[]> {
+  const list = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: thumbnails ? { width: 320, height: 200 } : { width: 0, height: 0 }, fetchWindowIcons: false });
+  if (process.platform === 'darwin') {
+    let native = await macWindowSources(isSmoke);
+    if (thumbnails) {
+      const missing = native.filter((source) => !list.some((existing) => existing.id === source.id && !existing.thumbnail.isEmpty()));
+      if (missing.length) {
+        try { native = await macWindowSources(isSmoke, missing.map((source) => source.id)); }
+        catch (error) { console.warn('MAC_WINDOW_PREVIEWS_UNAVAILABLE', error); }
+      }
+    }
+    const nativeById = new Map(native.map((source) => [source.id, source]));
+    for (const source of list) {
+      const replacement = nativeById.get(source.id);
+      if (source.thumbnail.isEmpty() && replacement) { source.thumbnail = replacement.thumbnail; source.appIcon = replacement.appIcon; }
+      nativeById.delete(source.id);
+    }
+    list.push(...nativeById.values());
+  }
+  return list;
+}
+
 async function sources(): Promise<CaptureSource[]> {
-  const list = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 200 }, fetchWindowIcons: false });
+  const list = await captureSources(true);
   sourceDisplays.clear();
-  return list.filter((source) => !source.name.startsWith(desktopCatalog.appName) || isSmoke).map((source) => {
+  const ownIds = new Set(BrowserWindow.getAllWindows().map((window) => window.getMediaSourceId()));
+  return list.filter((source) => isSmoke || !ownIds.has(source.id)).map((source) => {
     sourceDisplays.set(source.id, source.display_id);
-    return { id: source.id, name: source.name, thumbnail: source.thumbnail.toDataURL(), kind: source.id.startsWith('screen:') ? 'screen' : 'window', displayId: source.display_id };
+    return { id: source.id, name: source.name, thumbnail: source.thumbnail.isEmpty() ? '' : source.thumbnail.toDataURL(), appIcon: source.appIcon?.isEmpty() === false ? source.appIcon.toDataURL() : undefined, kind: source.id.startsWith('screen:') ? 'screen' : 'window', displayId: source.display_id };
   });
 }
 
@@ -144,7 +169,7 @@ function registerIPC(): void {
   ipcMain.handle(IPC.libraryVideo, async (_event, projectId: string, videoId: string) => Uint8Array.from(await readFile(await library.videoPath(projectId, videoId))).buffer);
   ipcMain.handle(IPC.libraryCover, (event, projectId: string, videoId?: string) => {
     if (event.sender !== mainWindow?.webContents) throw new Error(desktopCatalog.invalidRequest);
-    const binary = app.isPackaged ? path.join(process.resourcesPath, 'ffmpeg.exe') : path.join(ROOT, 'node_modules/ffmpeg-static/ffmpeg.exe');
+    const binary = ffmpegPath();
     return library.cover(projectId, binary, videoId);
   });
   ipcMain.handle(IPC.libraryReveal, async (_event, projectId?: string, videoId?: string) => {
@@ -197,7 +222,7 @@ app.whenReady().then(async () => {
   session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
     if (!selection || !request.userGesture && !isSmoke) { callback({}); return; }
     try {
-      const list = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } });
+      const list = await captureSources(false);
       const source = list.find((candidate) => candidate.id === selection?.sourceId);
       if (!source) { callback({}); return; }
       callback({ video: source, audio: selection.systemAudio ? 'loopback' : undefined });

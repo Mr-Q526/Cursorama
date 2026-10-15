@@ -15,6 +15,7 @@
     "test:updates": "node scripts/test-updates.mjs",
     "test:recording-controls": "node scripts/test-recording-controls.mjs",
     "package": "npm run build && node node_modules/electron/install.js && node scripts/package.mjs",
+    "package:mac": "npm run build && node node_modules/electron/install.js && node scripts/package-mac.mjs",
     "smoke": "node scripts/build-qa.mjs && electron . --smoke-test"
   },
   "dependencies": {

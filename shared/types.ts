@@ -165,6 +165,7 @@ export interface Project extends ProjectData {
 }
 
 export interface CaptureSource {
+  appIcon?: string;
   id: string;
   name: string;
   thumbnail: string;

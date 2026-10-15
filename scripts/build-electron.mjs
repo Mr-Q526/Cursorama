@@ -11,3 +11,5 @@ await build({
   target: 'node22', format: 'cjs', outfile: 'dist-electron/preload.cjs',
   external: ['electron'],
 });
+
+await import('./build-mac-native.mjs');

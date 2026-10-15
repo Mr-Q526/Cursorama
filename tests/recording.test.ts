@@ -64,6 +64,42 @@ async function recordImmediately() {
 }
 
 describe('录制清晰度与光标回归', () => {
+  it('Mac 录制采集移动与点击，停止时释放追踪器', async () => {
+    const capture = installCapture(); capture.track.cursor = 'never';
+    let emit: (sample: NativePointer) => void = () => undefined;
+    const unsubscribe = vi.fn();
+    const bridge = {
+      platform: 'darwin', selectSource: vi.fn(async () => undefined),
+      startPointer: vi.fn(async () => undefined), stopPointer: vi.fn(async () => undefined),
+      onPointer: vi.fn((callback: (sample: NativePointer) => void) => { emit = callback; return unsubscribe; }),
+      recordingState: vi.fn(async (_active: boolean) => undefined),
+    };
+    vi.stubGlobal('window', { desktop: bridge });
+    const active = await recordImmediately();
+    emit({ x: 0.2, y: 0.3, timestamp: Date.now(), kind: 'move', inside: true });
+    emit({ x: 0.7, y: 0.6, timestamp: Date.now(), kind: 'click', button: 'left', inside: true });
+    const project = await active.stop();
+    expect(capture.getDisplayMedia.mock.calls[0]?.[0]?.video).toHaveProperty('cursor', 'never');
+    expect(bridge.startPointer).toHaveBeenCalledOnce();
+    expect(project.samples.map((sample) => sample.kind)).toEqual(['move', 'click']);
+    expect(project.clips.length).toBeGreaterThan(0);
+    expect(project.cursorEmbedded).toBe(false);
+    expect(bridge.stopPointer).toHaveBeenCalledOnce(); expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(capture.track.readyState).toBe('ended');
+    URL.revokeObjectURL(project.videoUrl ?? '');
+  });
+  it('Mac 输入监控授权失败时拒绝录制并释放媒体与订阅', async () => {
+    const capture = installCapture(); const unsubscribe = vi.fn();
+    const bridge = {
+      platform: 'darwin', selectSource: vi.fn(async () => undefined),
+      startPointer: vi.fn(async () => { throw new Error('INPUT_MONITORING_PERMISSION_REQUIRED'); }),
+      stopPointer: vi.fn(async () => undefined), onPointer: vi.fn(() => unsubscribe),
+    };
+    vi.stubGlobal('window', { desktop: bridge });
+    await expect(prepareRecording(CAPTURE)).rejects.toThrow('INPUT_MONITORING_PERMISSION_REQUIRED');
+    expect(capture.track.stop).toHaveBeenCalledOnce();
+    expect(bridge.stopPointer).toHaveBeenCalledOnce(); expect(unsubscribe).toHaveBeenCalledOnce();
+  });
   it('按来源的原始像素采集，不固定缩小到 1440p', async () => {
     const capture = installCapture();
     const active = await recordImmediately();

@@ -3,6 +3,7 @@ import { createInterface } from 'node:readline';
 import { screen } from 'electron';
 import type { FocusRegion, NativePointer, PointerKind } from '../shared';
 import { desktopCatalog } from './catalog';
+import { macCaptureHelper } from './mac-capture';
 
 interface RawPointer { x: number; y: number; screenX: number; screenY: number; timestamp: number; kind: PointerKind; button?: 'left' | 'right'; focus?: FocusRegion; normalized: boolean; inside: boolean; }
 const POINTER_START_TIMEOUT = 12_000;
@@ -23,9 +24,11 @@ export class PointerTracker {
 
   async start(scriptPath: string, sourceId: string, displayId: string, callback: (sample: NativePointer) => void, ignorePoint?: (position: Electron.Point) => boolean): Promise<void> {
     this.stop();
-    if (process.platform !== 'win32') throw new Error(desktopCatalog.unsupportedPlatform);
+    if (process.platform !== 'win32' && process.platform !== 'darwin') throw new Error(desktopCatalog.unsupportedPlatform);
     const handle = sourceId.startsWith('window:') ? sourceId.split(':')[1] : '0';
-    const child = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, '-WindowHandle', handle], { windowsHide: true, stdio: 'pipe' });
+    const child = process.platform === 'darwin'
+      ? spawn(macCaptureHelper(), ['track', sourceId, displayId], { stdio: 'pipe' })
+      : spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, '-WindowHandle', handle], { windowsHide: true, stdio: 'pipe' });
     this.process = child;
     const lines = createInterface({ input: child.stdout });
     let diagnostic = '';
@@ -34,15 +37,25 @@ export class PointerTracker {
     await new Promise<void>((resolve, reject) => {
       let ready = false;
       const timeout = setTimeout(() => { this.stop(); reject(new Error(desktopCatalog.pointerError)); }, POINTER_START_TIMEOUT);
-      const fail = (error: Error): void => { clearTimeout(timeout); if (!ready) reject(error); else console.error(error); };
+      const fail = (error: Error): void => {
+        clearTimeout(timeout); lines.close();
+        if (!ready) reject(error); else console.error(error);
+        if (this.process === child) this.stop(); else child.kill();
+      };
       child.once('error', fail);
-      child.once('exit', (code) => { if (!ready) fail(new Error(`${desktopCatalog.pointerError} ${diagnostic} (${code})`)); });
+      child.once('close', (code) => {
+        lines.close();
+        if (!ready) fail(new Error(`${diagnostic.includes('INPUT_MONITORING_PERMISSION_REQUIRED') ? desktopCatalog.macPointerPermission : desktopCatalog.pointerError} ${diagnostic} (${code})`));
+        else if (this.process === child) { this.process = null; console.error('POINTER_PROCESS_EXITED', code, diagnostic); }
+      });
       lines.on('line', (line) => {
         if (line === 'READY') { ready = true; clearTimeout(timeout); resolve(); return; }
         let event: unknown;
         try { event = JSON.parse(line) as unknown; } catch (error) { console.warn('POINTER_PARSE_FAILED', error); return; }
         if (!isRawPointer(event)) return;
-        const screenPoint = screen.screenToDipPoint({ x: Math.round(event.screenX), y: Math.round(event.screenY) });
+        const screenPoint = process.platform === 'darwin'
+          ? { x: event.screenX, y: event.screenY }
+          : screen.screenToDipPoint({ x: Math.round(event.screenX), y: Math.round(event.screenY) });
         if ((event.kind !== 'typing' || !event.focus) && ignorePoint?.(screenPoint)) return;
         let x = event.x; let y = event.y; let inside = event.inside; let focus = event.focus;
         if (!event.normalized) {
@@ -66,5 +79,5 @@ export class PointerTracker {
     });
   }
 
-  stop(): void { this.process?.kill(); this.process = null; }
+  stop(): void { const child = this.process; this.process = null; child?.kill(); }
 }

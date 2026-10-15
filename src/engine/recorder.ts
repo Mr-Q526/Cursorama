@@ -144,7 +144,8 @@ export async function prepareRecording(options: CaptureOptions): Promise<Prepare
 
   try {
     if (window.desktop) await window.desktop.selectSource(options);
-    const video: CursorConstraints = { frameRate: { ideal: options.fps, max: options.fps }, cursor: window.desktop ? 'never' : 'always' };
+    const tracksPointer = Boolean(window.desktop);
+    const video: CursorConstraints = { frameRate: { ideal: options.fps, max: options.fps }, cursor: tracksPointer ? 'never' : 'always' };
     screenStream = await navigator.mediaDevices.getDisplayMedia({ video, audio: options.systemAudio });
     captureTrack = screenStream.getVideoTracks()[0];
     if (!captureTrack) throw new Error('CAPTURE_VIDEO_MISSING');
@@ -167,7 +168,7 @@ export async function prepareRecording(options: CaptureOptions): Promise<Prepare
     const source: RecordingSourceInfo = {
       label: captureTrack.label, width: 0,
       height: 0, fps: trackSettings.frameRate ?? options.fps,
-      cursorEmbedded: trackSettings.cursor !== 'never' || !window.desktop,
+      cursorEmbedded: trackSettings.cursor !== 'never' || !tracksPointer,
     };
     const stream = mixedStream;
     const track = captureTrack;
@@ -179,7 +180,7 @@ export async function prepareRecording(options: CaptureOptions): Promise<Prepare
       const position = event.x >= 0 && event.x <= 1 && event.y >= 0 && event.y <= 1 ? event : samples.at(-1) ?? { x: 0.5, y: 0.5 };
       samples.push({ time, x: position.x, y: position.y, kind: event.kind, button: event.button, ...(event.focus ? { focus: { ...event.focus } } : {}) });
     };
-    if (window.desktop) {
+    if (window.desktop && tracksPointer) {
       unsubscribe = window.desktop.onPointer(addSample);
       ownsPointer = true;
       await window.desktop.startPointer(options.sourceId);

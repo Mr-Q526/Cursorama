@@ -180,3 +180,32 @@ export async function startCountdownUI() {
     return { countdownMilliseconds: Math.round(delay), sourceReselections: instrument.selections(), countdownExcludedFromRecording: true, prompterConfigured: true, recordingFinishedInEditor: true };
   } finally { instrument.restore(); }
 }
+
+export async function runCaptureSourcePreviewUIQA(sourceId: string) {
+  button(t.editor.newRecording).click();
+  const dialog = await waitUntil(() => document.querySelector<HTMLElement>('[role="dialog"]') ?? undefined);
+  button(t.recording.window, dialog).click();
+  const card = await waitUntil(() => dialog.querySelector<HTMLButtonElement>(`.source-option[data-source-id="${CSS.escape(sourceId)}"]`) ?? undefined);
+  card.scrollIntoView({ block: 'center' });
+  const preview = await waitUntil(() => {
+    const image = card.querySelector<HTMLImageElement>('.source-thumbnail:not(.source-thumbnail-fallback) img');
+    return image?.complete && image.naturalWidth > 0 ? image : undefined;
+  });
+  const height = card.getBoundingClientRect().height;
+  if (!card.title || preview.alt !== '' || height > 160) throw new Error('QA_SOURCE_PREVIEW_LAYOUT');
+  card.click();
+  await waitUntil(() => !button(t.recording.confirmSource, dialog).disabled ? true : undefined);
+  return { thumbnailLoaded: true, naturalWidth: preview.naturalWidth, cardHeight: height, selectable: true };
+}
+
+export async function runCaptureSourceFallbackUIQA(sourceId: string) {
+  const card = document.querySelector<HTMLButtonElement>(`.source-option[data-source-id="${CSS.escape(sourceId)}"]`);
+  const image = card?.querySelector<HTMLImageElement>('.source-thumbnail img');
+  if (!card || !image) throw new Error('QA_SOURCE_PREVIEW_MISSING');
+  image.dispatchEvent(new Event('error'));
+  await waitUntil(() => card.querySelector('.source-thumbnail-fallback') ? true : undefined);
+  if (card.getBoundingClientRect().height > 160 || !card.textContent?.includes(t.recording.thumbnailUnavailable)) throw new Error('QA_SOURCE_FALLBACK_LAYOUT');
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+  if (!dialog || button(t.recording.confirmSource, dialog).disabled) throw new Error('QA_SOURCE_FALLBACK_UNSELECTABLE');
+  return { fallbackVisible: true, selectable: true, stableLayout: true };
+}

@@ -1,6 +1,7 @@
 export const recordingCatalog = {
   title: '选择录制来源', subtitle: '先选择屏幕或窗口并确认画面，再开始倒计时。',
   screen: '整个屏幕', window: '应用窗口', browser: '选择录制来源',
+  thumbnailUnavailable: '暂无预览 · 可选择窗口',
   loading: '正在获取录制来源…', refresh: '刷新来源',
   noSources: '没有找到可录制的窗口。请打开需要演示的应用后刷新。',
   microphone: '麦克风', microphoneHint: '录制你的讲解声音', systemAudio: '系统声音',
@@ -15,6 +16,8 @@ export const recordingCatalog = {
   statusHint: '继续操作你的应用。鼠标轨迹和点击将被同步记录。',
   pointerReady: '鼠标追踪已启用', pointerUnavailable: '鼠标追踪未能启动，请重试。',
   browserNote: '浏览器版支持录制和手动镜头编辑。跨软件鼠标追踪与自动运镜请使用桌面版。',
+  macPointerPermission: '鼠标追踪需要输入监控权限。请在系统设置 → 隐私与安全性 → 输入监控中允许 Cursorama（开发模式为 Electron），然后重启应用。',
+  macNote: 'Mac 版首次录制请在系统设置中允许屏幕录制和输入监控，授权后重启应用。鼠标移动与点击用于自动运镜和点击效果；录制整个屏幕时，悬浮控件和提词器可能进入画面。',
   nativeCursorNote: '画面已包含系统鼠标，保留真实光标，不再叠加另一只。仍可设置点击涟漪与焦点光晕。',
   separateCursorNote: '光标来自这段录制保存的鼠标轨迹，可调整样式和尺寸。',
   sourcesError: '无法获取录制来源，请刷新重试。',

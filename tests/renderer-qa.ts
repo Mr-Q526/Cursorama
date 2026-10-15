@@ -2,7 +2,7 @@ import { DEFAULT_SETTINGS, projectBytes, readProjectBytes } from '../shared';
 import type { Project } from '../shared';
 import { createDemoProject, DEMO, drawDemo, loadVideo, prepareRecording, renderExport, startRecording, VideoRenderer } from '../src/engine';
 
-export { prepareRecordingUI, cancelCountdownUI, startCountdownUI } from './recording-ui-qa';
+export { runCaptureSourcePreviewUIQA, runCaptureSourceFallbackUIQA, prepareRecordingUI, cancelCountdownUI, startCountdownUI } from './recording-ui-qa';
 export { runFullscreenControlsQA, runRoundedFrameQA } from './preview-ui-qa';
 export { runGlassFrameQA } from './frame-glass-qa';
 export { runEditingUIQA, restoreEditingUIQA } from './editing-ui-qa';
